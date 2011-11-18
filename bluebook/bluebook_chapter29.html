@@ -1,0 +1,5401 @@
+<!DOCTYPE html PUBLIC "-//w3c//dtd html 4.0 transitional//en">
+<html><head>
+<!-- base href="http://users.ipa.net.wstub.archive.org/~dwighth/smalltalk/bluebook/bluebook_chapter29.html" -->
+
+   <meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+   <meta name="GENERATOR" content="Mozilla/4.5 [en] (WinNT; I) [Netscape]">
+   <title>Blue Book Chapter 29</title>
+</head>
+<body alink="#FF0000" bgcolor="#FFF7E1" link="#0000EE" text="#000000" vlink="#551A8B">
+
+<center><a name="top_of_29"></a><font color="#3333FF">[<a href="../bluebook_imp_toc.html">TOC</a>]
+[<a href="../bluebook/bluebook_chapter26.html">26</a>] [<a href="../bluebook/bluebook_chapter27.html">27</a>]
+[<a href="../bluebook/bluebook_chapter28.html">28</a>] </font><font color="#000000">29</font><font color="#3333FF">
+[<a href="../bluebook/bluebook_chapter30.html">30</a>]</font>
+<br>
+<hr size="1" width="100%"><font color="#000099"><font size="+4">29</font></font>
+<br><font color="#3333FF"><font size="+3">Formal Specification of the Primitive
+Methods&nbsp;</font></font>
+<hr size="1" width="100%"></center>
+
+<dl>
+<dl>
+<dl>
+<dd>
+<b><font color="#3333FF"><font size="+1"><a href="../bluebook/bluebook_chapter29.html#ArithmeticPrimitives29">Arithmetic
+Primitives</a></font></font></b></dd>
+
+<dd>
+<b><font color="#3333FF"><font size="+1"><a href="../bluebook/bluebook_chapter29.html#ArrayAndStreamPrimitives29">Array
+and Stream Primitives</a></font></font></b></dd>
+
+<dd>
+<b><font color="#3333FF"><font size="+1"><a href="../bluebook/bluebook_chapter29.html#StorageManagementPrimitives29">Storage
+Management Primitives</a></font></font></b></dd>
+
+<dd>
+<b><font color="#3333FF"><font size="+1"><a href="../bluebook/bluebook_chapter29.html#ControlPrimitives29">Control
+Primitives</a></font></font></b></dd>
+
+<dd>
+<b><font color="#3333FF"><font size="+1"><a href="../bluebook/bluebook_chapter29.html#InputOutputPrimitives29">Input/Output
+Primitives</a></font></font></b></dd>
+
+<dd>
+<b><font color="#3333FF"><font size="+1"><a href="../bluebook/bluebook_chapter29.html#SystemPrimitives29">System
+Primitives</a></font></font></b></dd>
+</dl>
+</dl>
+</dl>
+
+<hr size="1" width="100%">When a message is sent, the interpreter usually
+responds by executing a Smalltalk <tt>CompiledMethod</tt>. This involves
+creating a new <tt>MethodContext</tt> for that <tt>CompiledMethod</tt>
+and executing its bytecodes until a return bytecode is encountered. Some
+messages, however, may be responded to <i>primitively</i>. A primitive
+response is performed directly by the interpreter without creating a new
+context or executing any other bytecodes. Each primitive response the interpreter
+can make is described by a <i>primitive routine</i>. A primitive routine
+removes the message receiver and arguments from the stack and replaces
+them with the appropriate result. Some primitive routines have other effects
+on the object memory or on some hardware devices. After a primitive response
+is completed, the interpreter proceeds with interpretation of the bytecode
+after the send bytecode that caused the primitive to be executed.
+<br>&nbsp;&nbsp;&nbsp; At any point in its execution, a primitive routine
+may determine that a primitive response cannot be made. This may, for example,
+be due to a message argument of the wrong class. This is called <i>primitive
+failure</i>. When a primitive fails, the Smalltalk method associated with
+the selector and receiver's class will be executed as if the primitive
+method did not exist.
+<br>&nbsp;&nbsp;&nbsp; The table below shows the class-selector pairs associated
+with each primitive routine. Some of these class-selector pairs have not
+appeared earlier in this book since they are part of the class's private
+protocol. Some of the primitive routines must meet their specification
+in order for the system to function properly. Other primitive routines
+are optional; the system will simply perform less efficiently if they always
+fail. The optional primitives are marked with an asterisk. The Smalltalk
+methods associated with optional primitive routines must do everything
+the primitive does. The Smalltalk methods associated with required primitive
+routines need only handle the cases for which the primitive fails.
+<p>
+</p><hr size="1" width="80%">
+<center><table border="1" cellspacing="0" width="80%">
+<caption><b><font size="+1">The Smalltalk Primitives</font></b></caption>
+
+<tbody><tr>
+<td align="LEFT" bgcolor="#CCFFFF" valign="TOP" width="20%"><b>Primitive Index</b></td>
+
+<td bgcolor="#CCFFFF"><b>Class-Selector Pairs&nbsp;</b></td>
+</tr>
+
+<tr>
+<td><tt>1</tt></td>
+
+<td><tt>SmallInteger +</tt></td>
+</tr>
+
+<tr>
+<td><tt>2</tt></td>
+
+<td><tt>SmallInteger -</tt></td>
+</tr>
+
+<tr>
+<td><tt>3</tt></td>
+
+<td><tt>SmallInteger &lt;</tt></td>
+</tr>
+
+<tr>
+<td><tt>4</tt></td>
+
+<td><tt>SmallInteger &gt;</tt></td>
+</tr>
+
+<tr>
+<td><tt>5*</tt></td>
+
+<td><tt>SmallInteger &lt;=</tt></td>
+</tr>
+
+<tr>
+<td><tt>6*</tt></td>
+
+<td><tt>SmallInteger &gt;=</tt></td>
+</tr>
+
+<tr>
+<td><tt>7</tt></td>
+
+<td><tt>SmallInteger =</tt></td>
+</tr>
+
+<tr>
+<td><tt>8*</tt></td>
+
+<td><tt>SmallInteger ~=</tt></td>
+</tr>
+
+<tr>
+<td><tt>9</tt></td>
+
+<td><tt>SmallInteger *</tt></td>
+</tr>
+
+<tr>
+<td><tt>10*</tt></td>
+
+<td><tt>SmallInteger /&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td><tt>11*</tt></td>
+
+<td><tt>SmallInteger \\</tt></td>
+</tr>
+
+<tr>
+<td><tt>12*</tt></td>
+
+<td><tt>SmallInteger //</tt></td>
+</tr>
+
+<tr>
+<td><tt>13</tt></td>
+
+<td><tt>SmallInteger quo:</tt></td>
+</tr>
+
+<tr>
+<td><tt>14</tt></td>
+
+<td><tt>SmallInteger bitAnd:</tt></td>
+</tr>
+
+<tr>
+<td><tt>15</tt></td>
+
+<td><tt>SmallInteger bitOr:</tt></td>
+</tr>
+
+<tr>
+<td><tt>16</tt></td>
+
+<td><tt>SmallInteger bitXor:</tt></td>
+</tr>
+
+<tr>
+<td><tt>17</tt></td>
+
+<td><tt>SmallInteger bitShift:</tt></td>
+</tr>
+
+<tr>
+<td><tt>18*</tt></td>
+
+<td><tt>Number @</tt></td>
+</tr>
+
+<tr>
+<td><tt>19</tt></td>
+
+<td>&nbsp;</td>
+</tr>
+
+<tr>
+<td><tt>20</tt></td>
+
+<td>&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"><tt>21*</tt></td>
+
+<td><tt>Integer +&nbsp;</tt>
+<br><tt>LargePositiveInteger +&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"><tt>22*</tt></td>
+
+<td><tt>Integer -&nbsp;</tt>
+<br><tt>LargePositiveInteger -&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"><tt>23*</tt></td>
+
+<td><tt>Integer &lt;&nbsp;</tt>
+<br><tt>LargePositiveInteger &lt;&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"><tt>24*</tt></td>
+
+<td><tt>Integer &gt;&nbsp;</tt>
+<br><tt>LargePositiveInteger &gt;&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"><tt>25*</tt></td>
+
+<td><tt>Integer &lt;=&nbsp;</tt>
+<br><tt>LargePositiveInteger &lt;=&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"><tt>26</tt></td>
+
+<td><tt>Integer &gt;=&nbsp;</tt>
+<br><tt>LargePositiveInteger &gt;=&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"><tt>27*</tt></td>
+
+<td><tt>Integer =&nbsp;</tt>
+<br><tt>LargePositiveInteger =&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"><tt>28*</tt></td>
+
+<td><tt>Integer ~=&nbsp;</tt>
+<br><tt>LargePositiveInteger ~=&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"><tt>29*</tt></td>
+
+<td><tt>Integer *&nbsp;</tt>
+<br><tt>LargePositiveInteger *&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"><tt>30*</tt></td>
+
+<td><tt>Integer /&nbsp;</tt>
+<br><tt>LargePositiveInteger /&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"><tt>31*</tt></td>
+
+<td><tt>Integer \\&nbsp;</tt>
+<br><tt>LargePositiveInteger \\&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"><tt>32*</tt></td>
+
+<td><tt>Integer //&nbsp;</tt>
+<br><tt>LargePositiveInteger //&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"><tt>33*</tt></td>
+
+<td><tt>Integer quo:&nbsp;</tt>
+<br><tt>LargePositiveInteger quo:&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"><tt>34*</tt></td>
+
+<td><tt>Integer bitAnd:&nbsp;</tt>
+<br><tt>LargePositiveInteger bitAnd:&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"><tt>35*</tt></td>
+
+<td><tt>Integer bitOr:&nbsp;</tt>
+<br><tt>LargePositiveInteger bitOr:&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"><tt>36*</tt></td>
+
+<td><tt>Integer bitXor:&nbsp;</tt>
+<br><tt>LargePositiveInteger bitXor:</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"><tt>37*</tt></td>
+
+<td><tt>Integer bitShift:&nbsp;</tt>
+<br><tt>LargePositiveInteger bitShift:&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td><tt>38</tt></td>
+
+<td>&nbsp;</td>
+</tr>
+
+<tr>
+<td><tt>39</tt></td>
+
+<td>&nbsp;</td>
+</tr>
+
+<tr>
+<td><tt>40</tt></td>
+
+<td><tt>SmallInteger asFloat&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td><tt>41</tt></td>
+
+<td><tt>Float +&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td><tt>42</tt></td>
+
+<td><tt>Float -&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td><tt>43</tt></td>
+
+<td><tt>Float &lt;&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td><tt>44</tt></td>
+
+<td><tt>Float &gt;</tt></td>
+</tr>
+
+<tr>
+<td><tt>45*</tt></td>
+
+<td><tt>Float &lt;=&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td><tt>46*</tt></td>
+
+<td><tt>Float &gt;=&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td><tt>47</tt></td>
+
+<td><tt>Float =&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td><tt>48*</tt></td>
+
+<td><tt>Float ~=&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td><tt>49</tt></td>
+
+<td><tt>Float *</tt></td>
+</tr>
+
+<tr>
+<td><tt>50</tt></td>
+
+<td><tt>Float /</tt></td>
+</tr>
+
+<tr>
+<td><tt>51</tt></td>
+
+<td><tt>Float truncated&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td><tt>52*</tt></td>
+
+<td><tt>Float fractionPart&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td><tt>53*</tt></td>
+
+<td><tt>Float exponent&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td><tt>54*</tt></td>
+
+<td><tt>Float timesTwoPower:</tt></td>
+</tr>
+
+<tr>
+<td><tt>55</tt></td>
+
+<td>&nbsp;</td>
+</tr>
+
+<tr>
+<td><tt>56</tt></td>
+
+<td>&nbsp;</td>
+</tr>
+
+<tr>
+<td><tt>57</tt></td>
+
+<td>&nbsp;</td>
+</tr>
+
+<tr>
+<td><tt>58</tt></td>
+
+<td>&nbsp;</td>
+</tr>
+
+<tr>
+<td><tt>59</tt></td>
+
+<td>&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"><tt>60</tt></td>
+
+<td><tt>LargeNegativeInteger digitAt:&nbsp;</tt>
+<br><tt>LargePositiveInteger digitAt:&nbsp;</tt>
+<br><tt>Object at:&nbsp;</tt>
+<br><tt>Object basicAt:&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"><tt>61</tt></td>
+
+<td><tt>LargeNegativeInteger digitAt:put:&nbsp;</tt>
+<br><tt>LargePositiveInteger digitAt:put:&nbsp;</tt>
+<br><tt>Object basicAt:put:&nbsp;</tt>
+<br><tt>Object at:put:&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"><tt>62</tt></td>
+
+<td><tt>ArrayedCollection size&nbsp;</tt>
+<br><tt>LargeNegativeInteger digitLength&nbsp;</tt>
+<br><tt>LargePositiveInteger digitLength&nbsp;</tt>
+<br><tt>Object basicSize&nbsp;</tt>
+<br><tt>Object size&nbsp;</tt>
+<br><tt>String size&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"><tt>63</tt></td>
+
+<td><tt>String at:&nbsp;</tt>
+<br><tt>String basicAt:&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"><tt>64</tt></td>
+
+<td><tt>String basicAt:put:&nbsp;</tt>
+<br><tt>String at:put:&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"><tt>65*</tt></td>
+
+<td><tt>ReadStream next&nbsp;</tt>
+<br><tt>ReadWriteStream next&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td><tt>66*</tt></td>
+
+<td><tt>WriteStream nextPut:&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td><tt>67*</tt></td>
+
+<td><tt>PositionableStream atEnd&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td><tt>68</tt></td>
+
+<td><tt>CompiledMethod objectAt:&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td><tt>69</tt></td>
+
+<td><tt>CompiledMethod objectAt:put:&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"><tt>70</tt></td>
+
+<td><tt>Behavior basicNew&nbsp;</tt>
+<br><tt>Behavior new&nbsp;</tt>
+<br><tt>Interval class new&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"><tt>71</tt></td>
+
+<td><tt>Behavior new:&nbsp;</tt>
+<br><tt>Behavior basicNew:&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td><tt>72</tt></td>
+
+<td><tt>Object become:&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td><tt>73</tt></td>
+
+<td><tt>Object instVarAt:&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td><tt>74</tt></td>
+
+<td><tt>Object instVarAt:put:&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"><tt>75</tt></td>
+
+<td><tt>Object asOop&nbsp;</tt>
+<br><tt>Object hash&nbsp;</tt>
+<br><tt>Symbol hash&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"><tt>76</tt></td>
+
+<td><tt>SmallInteger asObject&nbsp;</tt>
+<br><tt>SmallInteger asObjectNoFail&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td><tt>77</tt></td>
+
+<td><tt>Behavior someInstance&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td><tt>78</tt></td>
+
+<td><tt>Object nextInstance&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td><tt>79</tt></td>
+
+<td><tt>CompiledMethod class newMethod:header:&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td><tt>80*</tt></td>
+
+<td><tt>ContextPart blockCopy:&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"><tt>81</tt></td>
+
+<td><tt>BlockContext value:value:value:&nbsp;</tt>
+<br><tt>BlockContext value&nbsp;</tt>
+<br><tt>BlockContext value:&nbsp;</tt>
+<br><tt>BlockContext value:value:&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td><tt>82</tt></td>
+
+<td><tt>BlockContext valueWithArguments:&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"><tt>83*</tt></td>
+
+<td><tt>Object perform:with:with:with:&nbsp;</tt>
+<br><tt>Object perform:with:&nbsp;</tt>
+<br><tt>Object perform:with:with:&nbsp;</tt>
+<br><tt>Object perform:&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td><tt>84</tt></td>
+
+<td><tt>Object perform:withArguments:&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td><tt>85</tt></td>
+
+<td><tt>Semaphore signal&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td><tt>86</tt></td>
+
+<td><tt>Semaphore wait&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td><tt>87</tt></td>
+
+<td><tt>Process resume&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td><tt>88</tt></td>
+
+<td><tt>Process suspend&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td><tt>89</tt></td>
+
+<td><tt>Behavior flushCache&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"><tt>90*</tt></td>
+
+<td><tt>InputSensor primMousePt&nbsp;</tt>
+<br><tt>InputState primMousePt&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"><tt>91</tt></td>
+
+<td><tt>InputState primCursorLocPut:&nbsp;</tt>
+<br><tt>InputState primCursorLocPutAgain:&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td><tt>92</tt></td>
+
+<td><tt>Cursor class cursorLink:&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td><tt>93</tt></td>
+
+<td><tt>InputState primInputSemaphore:&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td><tt>94</tt></td>
+
+<td><tt>InputState primSampleInterval:&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td><tt>95</tt></td>
+
+<td><tt>InputState primInputWord&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"><tt>96</tt></td>
+
+<td><tt>BitBlt copyBitsAgain&nbsp;</tt>
+<br><tt>BitBlt copyBits&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td><tt>97</tt></td>
+
+<td><tt>SystemDictionary snapshotPrimitive&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td><tt>98</tt></td>
+
+<td><tt>Time class secondClockInto:&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td><tt>99</tt></td>
+
+<td><tt>Time class millisecondClockInto:&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td><tt>100</tt></td>
+
+<td><tt>ProcessorScheduler signal:atMilliseconds:</tt></td>
+</tr>
+
+<tr>
+<td><tt>101</tt></td>
+
+<td><tt>Cursor beCursor&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td><tt>102</tt></td>
+
+<td><tt>DisplayScreen beDisplay&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td><tt>103*</tt></td>
+
+<td><tt>CharacterScanner scanCharactersFrom:to:in:rightX:stopConditions:displaying:&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td><tt>104*</tt></td>
+
+<td><tt>BitBlt drawLoopX:Y:&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"><tt>105*</tt></td>
+
+<td><tt>ByteArray primReplaceFrom:to:with:startingAt:&nbsp;</tt>
+<br><tt>ByteArray replaceFrom:to:withString:startingAt:&nbsp;</tt>
+<br><tt>String replaceFrom:to:withByteArray:startingAt:&nbsp;</tt>
+<br><tt>String primReplaceFrom:to:with;startingAt:&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td><tt>106</tt></td>
+
+<td><tt>&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td><tt>107</tt></td>
+
+<td>&nbsp;</td>
+</tr>
+
+<tr>
+<td><tt>108</tt></td>
+
+<td>&nbsp;</td>
+</tr>
+
+<tr>
+<td><tt>109</tt></td>
+
+<td>&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"><tt>110</tt></td>
+
+<td><tt>Character =&nbsp;</tt>
+<br><tt>Object ==&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td><tt>111</tt></td>
+
+<td><tt>Object class&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td><tt>112</tt></td>
+
+<td><tt>SystemDictionary coreLeft&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td><tt>113</tt></td>
+
+<td><tt>SystemDictionary quitPrimitive&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td><tt>114</tt></td>
+
+<td><tt>SystemDictionary exitToDebugger&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td><tt>115</tt></td>
+
+<td><tt>SystemDictionary oopsLeft&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td><tt>116</tt></td>
+
+<td><tt>SystemDictionary signal:atOopsLeft:wordsLeft:&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td><tt>117</tt></td>
+
+<td><tt>&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td><tt>118</tt></td>
+
+<td>&nbsp;</td>
+</tr>
+
+<tr>
+<td><tt>119</tt></td>
+
+<td>&nbsp;</td>
+</tr>
+
+<tr>
+<td><tt>120</tt></td>
+
+<td>&nbsp;</td>
+</tr>
+
+<tr>
+<td><tt>121</tt></td>
+
+<td>&nbsp;</td>
+</tr>
+
+<tr>
+<td><tt>122</tt></td>
+
+<td>&nbsp;</td>
+</tr>
+
+<tr>
+<td><tt>123</tt></td>
+
+<td>&nbsp;</td>
+</tr>
+
+<tr>
+<td><tt>124</tt></td>
+
+<td>&nbsp;</td>
+</tr>
+
+<tr>
+<td><tt>125</tt></td>
+
+<td>&nbsp;</td>
+</tr>
+
+<tr>
+<td><tt>126</tt></td>
+
+<td>&nbsp;</td>
+</tr>
+
+<tr>
+<td><tt>127</tt></td>
+
+<td>&nbsp;</td>
+</tr>
+</tbody></table></center>
+
+<hr size="1" width="80%">
+<br>&nbsp;
+<br>&nbsp;&nbsp;&nbsp; An example of a primitive method is the response
+of instances of <tt>SmallInteger</tt> to messages with selector <tt>+</tt>.
+If the argument is also an instance of <tt>SmallInteger</tt>, and the sum
+of the values of the receiver and argument is in the range that can be
+represented by <tt>SmallInteger</tt>, then the primitive method will remove
+the receiver and argument from the stack and replace them with an instance
+of <tt>SmallInteger</tt> whose value is the sum. If the argument is not
+a <tt>SmallInteger</tt> or the sum is out of range, the primitive will
+fail and the Smalltalk method associated with the selector <tt>+</tt> in
+<tt>SmallInteger</tt> will be executed.
+<br>&nbsp;&nbsp;&nbsp; The control structures used in the specification
+of the interpreter given in this book and the control structures used in
+a machine language implementation of the interpreter will probably use
+different mechanisms when primitive routines fail to complete. When a failure
+condition arises, a machine language primitive routine can decide not to
+return to its caller and simply jump to the appropriate place in the interpreter
+(usually the place that activates a <tt>CompiledMethod</tt>). However,
+since the formal specification is written in Smalltalk, all routines <i>must</i>
+return to their senders and <tt>Interpreter</tt> must keep track of primitive
+success or failure independently of the routine call structure. Part of
+the book specification, therefore, is a register called <tt>success</tt>
+that is initialized to <tt>true</tt> when a primitive is started and may
+be set to <tt>false</tt> if the routine fails. The following two routines
+set and test the state of the primitive <tt>success</tt> register.
+<dl>
+<dd>
+<b>success: successValue</b></dd>
+
+<dl>
+<dd>
+success := successValue &amp; success</dd>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>success</b></dd>
+
+<dl>
+<dd>
+^success</dd>
+</dl>
+</dl>
+The following routines set the state of the <tt>success</tt> flag in the
+two common cases of initialization before a primitive routine runs and
+discovery by a primitive routine that it cannot complete.
+<dl>
+<dd>
+<b>initPrimitive</b></dd>
+
+<dl>
+<dd>
+success := true</dd>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>primitiveFail</b></dd>
+
+<dl>
+<dd>
+success := false</dd>
+</dl>
+</dl>
+Many of the primitives manipulate integer quantities, so the interpreter
+includes several routines that perform common functions. The <tt>popInteger</tt>
+routine is used when a primitive expects a <tt>SmallInteger</tt> on the
+top of the stack. If it is a <tt>SmallInteger</tt>, its value is returned;
+if not, a primitive failure is signaled.
+<dl>
+<dd>
+<b>popInteger</b></dd>
+
+<dl>
+<dd>
+| integerPointer |</dd>
+
+<dd>
+integerPointer := self popStack.</dd>
+
+<dd>
+self success: (memory isIntegerObject: integerPointer).</dd>
+
+<dd>
+self success</dd>
+
+<dl>
+<dd>
+ifTrue: [^memory integerValueOf: integerPointer]</dd>
+</dl>
+</dl>
+</dl>
+Recall that the <tt>fetchInteger:ofObject:</tt> routine signaled a primitive
+failure if the indicated field did not contain a <tt>SmallInteger</tt>.
+The <tt>pushInteger:</tt> routine converts a value to a <tt>SmallInteger</tt>
+and pushes it on the stack.
+<dl>
+<dd>
+<b>pushInteger: integerValue</b></dd>
+
+<dl>
+<dd>
+self push: (memory integerObjectOf: integerValue)</dd>
+</dl>
+</dl>
+Since the largest indexable collections may have 65534 indexable elements,
+and <tt>SmallIntegers</tt> can only represent values up to 16383, primitive
+routines that deal with indices or sizes must be able to manipulate <tt>LargePositiveIntegers</tt>.
+The following two routines convert back and forth between 16-bit unsigned
+values and object pointers to <tt>SmallIntegers</tt> or <tt>LargePositiveIntegers</tt>.
+<dl>
+<dd>
+<b>positive16BitIntegerFor: integerValue</b></dd>
+
+<dl>
+<dd>
+| newLargeInteger |</dd>
+
+<dd>
+(self extractBits: 0 to: 1 of: integerValue) = 0</dd>
+
+<dl>
+<dd>
+ifTrue: [^memory integerObjectOf: integerValue].</dd>
+</dl>
+
+<dd>
+newLargeInteger := memory instantiateClass: ClassLargePositiveIntegerPointer</dd>
+
+<dl>
+<dl>
+<dl>
+<dl>
+<dd>
+withBytes: 2.</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+
+<dd>
+memory storeByte: 0</dd>
+
+<dl>
+<dd>
+&nbsp; ofObject: newLargeInteger</dd>
+
+<dd>
+&nbsp; withValue: (self lowByteOf: integerValue).</dd>
+</dl>
+
+<dd>
+memory storeByte: 1</dd>
+
+<dl>
+<dd>
+&nbsp; ofObject: newLargeInteger</dd>
+
+<dd>
+&nbsp; withValue: (self highByteOf: integerValue).</dd>
+</dl>
+
+<dd>
+^newLargeInteger</dd>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>positive16BitValueOf: integerPointer</b></dd>
+
+<dl>
+<dd>
+| value |</dd>
+
+<dd>
+(memory isIntegerObject: integerPointer)</dd>
+
+<dl>
+<dd>
+ifTrue: [^memory integerValueOf: integerPointer].</dd>
+</dl>
+
+<dd>
+(memory fetchClassOf: integerPointer) = ClassLargePositiveIntegerPointer</dd>
+
+<dl>
+<dd>
+ifFalse: [^self primitiveFail].</dd>
+</dl>
+
+<dd>
+(memory fetchByteLengthOf: integerPointer) = 2</dd>
+
+<dl>
+<dd>
+ifFalse: [^self primitiveFail].</dd>
+</dl>
+
+<dd>
+value := memory fetchByte: 1 ofObject: integerPointer.</dd>
+
+<dd>
+value := value * 256 + (memory fetchByte: 0 ofObject: integerPointer).</dd>
+
+<dd>
+^value</dd>
+</dl>
+</dl>
+There are three ways that a primitive routine can be reached in the process
+of interpreting a send-message bytecode.
+<ol>
+<li>
+Some primitive routines are associated with send-special-selector bytecodes
+for certain classes of receiver. These can be reached without a message
+lookup.</li>
+
+<li>
+The two most common primitive routines (returning <tt>self</tt> or an instance
+variable) can be indicated in the flag value of the header a <tt>CompiledMethod</tt>.
+These are only found after a message lookup has produced a <tt>CompiledMethod</tt>,
+but only the header need be examined.</li>
+
+<li>
+Most primitive routines are indicated by a number in the header extension
+of a <tt>CompiledMethod</tt>. These are also found after a message lookup.</li>
+</ol>
+The first path to a primitive routine was represented by the call on <tt>specialSelectorPrimitiveResponse</tt>
+in the <tt>sendSpecialSelectorBytecode</tt> routine. The <tt>specialSelectorPrimitiveResponse</tt>
+routine selects an appropriate primitive routine and returns <tt>true</tt>
+if a primitive response was successfully made and <tt>false</tt> otherwise.
+Recall that the <tt>sendSpecialSelectorBytecode</tt> routine looks up the
+special selector if <tt>specialSelectorPrimitiveResponse</tt> returns <tt>false</tt>.
+<dl>
+<dd>
+<b>specialSelectorPrimitiveResponse</b></dd>
+
+<dl>
+<dd>
+self initPrimitive.</dd>
+
+<dd>
+(currentBytecode between: 176 and: 191)</dd>
+
+<dl>
+<dd>
+ifTrue: [self arithmeticSelectorPrimitive].</dd>
+</dl>
+
+<dd>
+(currentBytecode between: 192 and: 207)</dd>
+
+<dl>
+<dd>
+ifTrue: [self commonSelectorPrimitive].</dd>
+</dl>
+
+<dd>
+^self success</dd>
+</dl>
+</dl>
+A primitive routine will be accessed by a special arithmetic selector only
+if the receiver is a <tt>SmallInteger</tt>. The actual primitive routines
+will be described in the section on arithmetic primitives.
+<dl>
+<dd>
+<b>arithmeticSelectorPrimitive</b></dd>
+
+<dl>
+<dd>
+self success: (memory isIntegerObject: (self stackValue: 1)).</dd>
+
+<dd>
+self success</dd>
+
+<dl>
+<dd>
+ifTrue: [currentBytecode = 176 ifTrue: [^self primitiveAdd].</dd>
+
+<dl>
+<dd>
+currentBytecode = 177 ifTrue: [^self primitiveSubtract].</dd>
+
+<dd>
+currentBytecode = 178 ifTrue: [^self primitiveLessThan].</dd>
+
+<dd>
+currentBytecode = 179 ifTrue: [^self primitiveGreaterThan].</dd>
+
+<dd>
+currentBytecode = 180 ifTrue: [^self primitiveLessOrEqual].</dd>
+
+<dd>
+currentBytecode = 181 ifTrue: [^self primitiveGreaterOrEqual].</dd>
+
+<dd>
+currentBytecode = 182 ifTrue: [^self primitiveEqual].</dd>
+
+<dd>
+currentBytecode = 183 ifTrue: [^self primitiveNotEqual].</dd>
+
+<dd>
+currentBytecode = 184 ifTrue: [^self primitiveMultiply].</dd>
+
+<dd>
+currentBytecode = 185 ifTrue: [^self primitiveDivide].</dd>
+
+<dd>
+currentBytecode = 186 ifTrue: [^self primitiveMod].</dd>
+
+<dd>
+currentBytecode = 187 ifTrue: [^self primitiveMakePoint].</dd>
+
+<dd>
+currentBytecode = 188 ifTrue: [^self primitiveBitShift].</dd>
+
+<dd>
+currentBytecode = 189 ifTrue: [^self primitiveDiv].</dd>
+
+<dd>
+currentBytecode = 190 ifTrue: [^self primitiveBitAnd].</dd>
+
+<dd>
+currentBytecode = 191 ifTrue: [^self primitiveBitOr]]</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+Only five of the non-arithmetic special selectors invoke primitives without
+a message lookup (<tt>==</tt>, <tt>class</tt>, <tt>blockCopy:</tt>, <tt>value</tt>,
+and <tt>value:</tt>). The primitive routine for <tt>==</tt> is found in
+the section on system primitives and the routine for <tt>class</tt> in
+storage management primitives. They are both invoked for any class of receiver.
+The routines for <tt>blockCopy:</tt>, <tt>value</tt>, and <tt>value:</tt>
+are found in the section on control primitives. The routine for <tt>blockCopy:</tt>
+will be invoked if the receiver is a <tt>MethodContext</tt> or a <tt>BlockContext</tt>.
+The routines for <tt>value</tt> and <tt>value:</tt> will only be invoked
+if the receiver is a <tt>BlockContext</tt>.
+<dl>
+<dd>
+<b>commonSelectorPrimitive</b></dd>
+
+<dl>
+<dd>
+| receiverClass |</dd>
+
+<dd>
+argumentCount := self fetchInteger: (currentBytecode - 176) * 2 + 1</dd>
+
+<dl>
+<dl>
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp; ofObject: SpecialSelectorsPointer.</dd>
+</dl>
+</dl>
+</dl>
+
+<dd>
+receiverClass := memory fetchClassOf: (self stackValue: argumentCount).</dd>
+
+<dd>
+currentBytecode = 198 ifTrue: [^self primitiveEquivalent].</dd>
+
+<dd>
+currentBytecode = 199 ifTrue: [^self primitiveClass].</dd>
+
+<dd>
+currentBytecode = 200</dd>
+
+<dl>
+<dd>
+ifTrue: [self success: (receiverClass = ClassMethodContextPointer)</dd>
+
+<dl>
+<dl>
+<dl>
+<dl>
+<dd>
+| (receiverClass = ClassBlockContextPointer).</dd>
+</dl>
+</dl>
+</dl>
+
+<dd>
+^self success ifTrue: [self primitiveBlockCopy]].</dd>
+</dl>
+</dl>
+
+<dd>
+(currentBytecode = 201) | (currentBytecode = 202)</dd>
+
+<dl>
+<dd>
+ifTrue: [self success: receiverClass = ClassBlockContextPointer.</dd>
+
+<dl>
+<dd>
+^self success ifTrue: [self primitiveValue]].</dd>
+</dl>
+</dl>
+
+<dd>
+self primitiveFail</dd>
+</dl>
+</dl>
+The second and third paths to primitive routines listed above are taken
+after a <tt>CompiledMethod</tt> for a message has been found. The presence
+of a primitive is detected by the <tt>primitiveResponse</tt> routine called
+in <tt>executeNewMethod</tt>. The <tt>primitiveResponse</tt> routine is
+similar to the <tt>specialSelectorPrimitiveResponse</tt> routine in that
+it returns <tt>true</tt> if a primitive response was successfully made
+and <tt>false</tt> otherwise. Recall that the <tt>executeNewMethod</tt>
+routine activates the <tt>CompiledMethod</tt> has been looked up if <tt>primitiveResponse</tt>
+returns <tt>false</tt>.
+<dl>
+<dd>
+<b>primitiveResponse</b></dd>
+
+<dl>
+<dd>
+| flagValue thisReceiver offset |</dd>
+
+<dd>
+primitiveIndex = 0</dd>
+
+<dl>
+<dd>
+ifTrue: [flagValue := self flagValueOf: newMethod.</dd>
+
+<dl>
+<dd>
+flagValue = 5</dd>
+
+<dl>
+<dd>
+ifTrue: [self quickReturnSelf.</dd>
+
+<dl>
+<dd>
+^true].</dd>
+</dl>
+</dl>
+
+<dd>
+flagValue = 6</dd>
+
+<dl>
+<dd>
+ifTrue: [self quickInstanceLoad.</dd>
+
+<dl>
+<dd>
+^true].</dd>
+</dl>
+</dl>
+
+<dd>
+^false]</dd>
+</dl>
+
+<dd>
+ifFalse: [self initPrimitive.</dd>
+
+<dl>
+<dd>
+self dispatchPrimitives.</dd>
+
+<dd>
+^self success]</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+Flag values of 5 and 6 reach the two most commonly found primitives, a
+simple return of <tt>self</tt> and a simple return of one of the receiver's
+instance variables. Returning <tt>self</tt> is a no-op as far as the interpreter
+is concerned since <tt>self's</tt> object pointer occupies the same place
+on the stack as the message receiver that it should occupy as the message
+response.
+<dl>
+<dd>
+<b>quickReturnSelf</b></dd>
+</dl>
+Returning an instance variable of the receiver is almost as easy.
+<dl>
+<dd>
+<b>quickInstanceLoad</b></dd>
+
+<dl>
+<dd>
+| thisReceiver fieldIndex |</dd>
+
+<dd>
+thisReceiver := self popStack.</dd>
+
+<dd>
+fieldIndex := self fieldIndexOf: newMethod.</dd>
+
+<dd>
+self push: (memory fetchPointer: fieldIndex</dd>
+
+<dl>
+<dl>
+<dl>
+<dd>
+ofObject: thisReceiver)</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+</dl>
+The six types of primitives in the formal specification deal with arithmetic,
+subscripting and streaming, storage management, control structures, input/output,
+and general system access. These correspond to six ranges of primitive
+indices. A range of primitive indices has been reserved for implementation-private
+primitive routines. They may be assigned any meaning, but cannot be depended
+upon from interpreter to interpreter. Since these are not part of the specification,
+they cannot be described here.
+<dl>
+<dd>
+<b>dispatchPrimitives</b></dd>
+
+<dl>
+<dd>
+primitiveIndex &lt; 60 ifTrue: [^self dispatchArithmeticPrimitives].</dd>
+
+<dd>
+primitiveIndex &lt; 68 ifTrue: [^self dispatchSubscriptAndStreamPrimitives].</dd>
+
+<dd>
+primitiveIndex &lt; 80 ifTrue: [^self dispatchStorageManagementPrimitives].</dd>
+
+<dd>
+primitiveIndex &lt; 90 ifTrue: [^self dispatchControlPrimitives].</dd>
+
+<dd>
+primitiveIndex &lt; 110 ifTrue: [^self dispatchInputOutputPrimitives].</dd>
+
+<dd>
+primitiveIndex &lt; 128 ifTrue: [^self dispatchSystemPrimitives].</dd>
+
+<dd>
+primitiveIndex &lt; 256 ifTrue: [^self dispatchPrivatePrimitives]</dd>
+</dl>
+</dl>
+
+<center>
+<hr size="1" width="80%"><a name="ArithmeticPrimitives29"></a><b><font color="#3333FF"><font size="+2">Arithmetic
+Primitives</font></font></b>
+<hr size="1" width="80%"></center>
+There are three sets of arithmetic primitive routines, one for <tt>SmallIntegers</tt>,
+one for large integers (<tt>LargePositiveIntegers</tt> and <tt>LargeNegativeIntegers</tt>),
+and one for <tt>Floats</tt>. The primitives for <tt>SmallIntegers</tt>
+and <tt>Floats</tt> must be implemented, the primitives for large integers
+are optional.
+<dl>
+<dd>
+<b>dispatchArithmeticPrimitives</b></dd>
+
+<dl>
+<dd>
+primitiveIndex &lt; 20 ifTrue: [^self dispatchIntegerPrimitives].</dd>
+
+<dd>
+primitiveIndex &lt; 40 ifTrue: [^self dispatchLargeIntegerPrimitives].</dd>
+
+<dd>
+primitiveIndex &lt; 60 ifTrue: [^self dispatchFloatPrimitives]</dd>
+</dl>
+</dl>
+The first set of arithmetic primitive routines all pop a receiver and argument
+off the stack and fail if they are not both <tt>SmallIntegers</tt>. The
+routines then push on the stack either the integral result of a computation
+or the Boolean result of a comparison. The routines that produce an integral
+result fail if the value cannot be represented as a <tt>SmallInteger</tt>.
+<dl>
+<dd>
+<b>dispatchIntegerPrimitives</b></dd>
+
+<dl>
+<dd>
+primitiveIndex = 1 ifTrue: [^self primitiveAdd].</dd>
+
+<dd>
+primitiveIndex = 2 ifTrue: [^self primitiveSubtract].</dd>
+
+<dd>
+primitiveIndex = 3 ifTrue: [^self primitiveLessThan].</dd>
+
+<dd>
+primitiveIndex = 4 ifTrue: [^self primitiveGreaterThan].</dd>
+
+<dd>
+primitiveIndex = 5 ifTrue: [^self primitiveLessOrEqual].</dd>
+
+<dd>
+primitiveIndex = 6 ifTrue: [^self primitiveGreaterOrEqual].</dd>
+
+<dd>
+primitiveIndex = 7 ifTrue: [^self primitiveEqual].</dd>
+
+<dd>
+primitiveIndex = 8 ifTrue: [^self primitiveNotEqual].</dd>
+
+<dd>
+primitiveIndex = 9 ifTrue: [^self primitiveMultiply].</dd>
+
+<dd>
+primitiveIndex = 10 ifTrue: [^self primitiveDivide].</dd>
+
+<dd>
+primitiveIndex = 11 ifTrue: [^self primitiveMod].</dd>
+
+<dd>
+primitiveIndex = 12 ifTrue: [^self primitiveDiv].</dd>
+
+<dd>
+primitiveIndex = 13 ifTrue: [^self primitiveQuo].</dd>
+
+<dd>
+primitiveIndex = 14 ifTrue: [^self primitiveBitAnd].</dd>
+
+<dd>
+primitiveIndex = 15 ifTrue: [^self primitiveBitOr].</dd>
+
+<dd>
+primitiveIndex = 16 ifTrue: [^self primitiveBitXor].</dd>
+
+<dd>
+primitiveIndex = 17 ifTrue: [^self primitiveBitShift].</dd>
+
+<dd>
+primitiveIndex = 18 ifTrue: [^self primitiveMakePoint]</dd>
+</dl>
+</dl>
+The <tt>primitiveAdd</tt>, <tt>primitiveSubtract</tt>, and <tt>primitiveMultiply</tt>
+routines are all identical except for the arithmetic operation used, so
+only <tt>primitiveAdd</tt> routine will be shown here.
+<dl>
+<dd>
+<b>primitiveAdd</b></dd>
+
+<dl>
+<dd>
+| integerReceiver integerArgument integerResult |</dd>
+
+<dd>
+integerArgument := self popInteger.</dd>
+
+<dd>
+integerReceiver := self popInteger.</dd>
+
+<dd>
+self success</dd>
+
+<dl>
+<dd>
+ifTrue: [integerResult := integerReceiver + integerArgument.</dd>
+
+<dl>
+<dd>
+self success: (memory isIntegerValue: integerResult)].</dd>
+</dl>
+</dl>
+
+<dd>
+self success</dd>
+
+<dl>
+<dd>
+ifTrue: [self pushInteger: integerResult]</dd>
+
+<dd>
+ifFalse: [self unPop: 2]</dd>
+</dl>
+</dl>
+</dl>
+The primitive routine for division (associated with the selector <tt>/</tt>)
+is different than the other three arithmetic primitives since it only produces
+a result if the division is exact, otherwise the primitive fails. This
+primitive, and the next three that have to do with rounding division, all
+fail if their argument is 0.
+<dl>
+<dd>
+<b>primitiveDivide</b></dd>
+
+<dl>
+<dd>
+| integerReceiver integerArgument integerResult |</dd>
+
+<dd>
+integerArgument := self popInteger.</dd>
+
+<dd>
+integerReceiver := self popInteger.</dd>
+
+<dd>
+self success: integerArgument ~= 0.</dd>
+
+<dd>
+self success: integerReceiver \\ integerArgument = 0.</dd>
+
+<dd>
+self success</dd>
+
+<dl>
+<dd>
+ifTrue: [integerResult := integerReceiver // integerArgument.</dd>
+
+<dl>
+<dd>
+self success: (memory isIntegerValue: integerResult)].</dd>
+</dl>
+</dl>
+
+<dd>
+self success</dd>
+
+<dl>
+<dd>
+ifTrue: [self push: (memory integerObjectOf: integerResult)]</dd>
+
+<dd>
+ifFalse: [self unPop: 2]</dd>
+</dl>
+</dl>
+</dl>
+The primitive routine for the modulo function (associated with the selector
+<tt>\\</tt>)
+gives the remainder of a division where the quotient is always rounded
+down (toward negative infinity).
+<dl>
+<dd>
+<b>primitiveMod</b></dd>
+
+<dl>
+<dd>
+| integerReceiver integerArgument integerResult |</dd>
+
+<dd>
+integerArgument := self popInteger.</dd>
+
+<dd>
+integerReceiver := self popInteger.</dd>
+
+<dd>
+self success: integerArgument ~= 0.</dd>
+
+<dd>
+self success</dd>
+
+<dl>
+<dd>
+ifTrue: [integerResult := integerReceiver \\ integerArgument.</dd>
+
+<dl>
+<dd>
+self success: (memory isIntegerValue: integerResult)].</dd>
+</dl>
+</dl>
+
+<dd>
+self success</dd>
+
+<dl>
+<dd>
+ifTrue: [self pushInteger: integerResult]</dd>
+
+<dd>
+ifFalse: [self unPop: 2]</dd>
+</dl>
+</dl>
+</dl>
+There are two primitive routines for rounding division (associated with
+the selectors <tt>//</tt> and <tt>quo:</tt>). The result of <tt>//</tt>
+is always rounded down (toward negative infinity).
+<dl>
+<dd>
+<b>primitiveDiv</b></dd>
+
+<dl>
+<dd>
+| integerReceiver integerArgument integerResult |</dd>
+
+<dd>
+integerArgument := self popInteger.</dd>
+
+<dd>
+integerReceiver := self popInteger.</dd>
+
+<dd>
+self success: integerArgument ~= 0.</dd>
+
+<dd>
+self success</dd>
+
+<dl>
+<dd>
+ifTrue: [integerResult := integerReceiver // integerArgument.</dd>
+
+<dl>
+<dd>
+self success: (memory isIntegerValue: integerResult)].</dd>
+</dl>
+</dl>
+
+<dd>
+self success</dd>
+
+<dl>
+<dd>
+ifTrue: [self pushInteger: integerResult]</dd>
+
+<dd>
+ifFalse: [self unPop: 2]</dd>
+</dl>
+</dl>
+</dl>
+The result of <tt>quo:</tt> is truncated (rounded toward zero).
+<dl>
+<dd>
+<b>primitiveQuo</b></dd>
+
+<dl>
+<dd>
+| integerReceiver integerArgument integerResult |</dd>
+
+<dd>
+integerArgument := self popInteger.</dd>
+
+<dd>
+integerReceiver := self popInteger.</dd>
+
+<dd>
+self success: integerArgument ~= 0.</dd>
+
+<dd>
+self success</dd>
+
+<dl>
+<dd>
+ifTrue: [integerResult := integerReceiver quo: integerArgument.</dd>
+
+<dl>
+<dd>
+self success: (memory isIntegerValue: integerResult)].</dd>
+</dl>
+</dl>
+
+<dd>
+self success</dd>
+
+<dl>
+<dd>
+ifTrue: [self pushInteger: integerResult]</dd>
+
+<dd>
+ifFalse: [self unPop: 2]</dd>
+</dl>
+</dl>
+</dl>
+The <tt>primitiveEqual</tt>, <tt>primitiveNotEqual</tt>, <tt>primitiveLessThan</tt>,
+<tt>primitiveLessOrEqual</tt>,
+<tt>primitiveGreaterThan</tt>, and <tt>primitiveGreaterOrEqual</tt> routines
+are all identical except for the comparison operation used, so only the
+<tt>primitiveEqual</tt>
+routine will be shown here.
+<dl>
+<dd>
+<b>primitiveEqual</b></dd>
+
+<dl>
+<dd>
+| integerReceiver integerArgument integerResult |</dd>
+
+<dd>
+integerArgument := self popInteger.</dd>
+
+<dd>
+integerReceiver := self popInteger.</dd>
+
+<dd>
+self success</dd>
+
+<dl>
+<dd>
+ifTrue: [integerReceiver = integerArgument</dd>
+
+<dl>
+<dl>
+<dd>
+ifTrue: [self push: TruePointer]</dd>
+
+<dd>
+ifFalse: [self push: FalsePointer]]</dd>
+</dl>
+</dl>
+
+<dd>
+ifFalse: [self unPop: 2]</dd>
+</dl>
+</dl>
+</dl>
+The <tt>primitiveBitAnd</tt>, <tt>primitiveBitOr</tt>, and <tt>primitiveBitXor</tt>
+routines perform logical operations on the two's-complement binary representations
+of <tt>SmallInteger</tt> values. They are identical except for the logical
+operation used, so only the <tt>primitiveBitAnd</tt> routine will be shown
+here.
+<dl>
+<dd>
+<b>primitiveBitAnd</b></dd>
+
+<dl>
+<dd>
+| integerReceiver integerArgument integerResult |</dd>
+
+<dd>
+integerArgument := self popInteger.</dd>
+
+<dd>
+integerReceiver := self popInteger.</dd>
+
+<dd>
+self success</dd>
+
+<dl>
+<dd>
+ifTrue: [integerResult := integerReceiver bitAnd: integerArgument].</dd>
+</dl>
+
+<dd>
+self success</dd>
+
+<dl>
+<dd>
+ifTrue: [self pushInteger: integerResult]</dd>
+
+<dd>
+ifFalse: [self unPop: 2]</dd>
+</dl>
+</dl>
+</dl>
+The primitive routine for shifting (associated with the selector <tt>bitShift:</tt>)
+returns a <tt>SmallInteger</tt> whose value represented in two's-complement
+is the receiver's value represented in two's-complement shifted left by
+the number of bits indicated by the argument. Negative arguments shift
+right. Zeros are shifted in from the right in left shifts. The sign bit
+is extended in right shifts. This primitive fails if the correct result
+cannot be represented as a <tt>SmallInteger</tt>.
+<dl>
+<dd>
+<b>primitiveBitShift</b></dd>
+
+<dl>
+<dd>
+| integerReceiver integerArgument integerResult |</dd>
+
+<dd>
+integerArgument := self popInteger.</dd>
+
+<dd>
+integerReceiver := self popInteger.</dd>
+
+<dd>
+self success</dd>
+
+<dl>
+<dd>
+ifTrue: [integerResult := integerReceiver bitShift: integerArgument.</dd>
+
+<dl>
+<dd>
+self success: (memory isIntegerValue: integerResult)].</dd>
+</dl>
+</dl>
+
+<dd>
+self success</dd>
+
+<dl>
+<dd>
+ifTrue: [self pushInteger: integerResult]</dd>
+
+<dd>
+ifFalse: [self unPop: 2]</dd>
+</dl>
+</dl>
+</dl>
+The primitive routine associated with the selector <tt>@</tt> returns a
+new <tt>Point</tt> whose <tt>x</tt> value is the receiver and whose <tt>y</tt>
+value is the argument.
+<dl>
+<dd>
+<b>primitiveMakePoint</b></dd>
+
+<dl>
+<dd>
+| integerReceiver integerArgument pointResult |</dd>
+
+<dd>
+integerArgument := self popStack.</dd>
+
+<dd>
+integerReceiver := self popStack.</dd>
+
+<dd>
+self success: (memory isIntegerValue: integerReceiver).</dd>
+
+<dd>
+self success: (memory isIntegerValue: integerArgument).</dd>
+
+<dd>
+self success</dd>
+
+<dl>
+<dd>
+ifTrue: [pointResult := memory instantiateClass: ClassPointPointer</dd>
+
+<dl>
+<dl>
+<dl>
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; withPointers: ClassPointSize.</dd>
+</dl>
+</dl>
+</dl>
+
+<dd>
+memory storePointer: XIndex</dd>
+
+<dl>
+<dd>
+ofObject: pointResult</dd>
+
+<dd>
+withValue: integerReceiver.</dd>
+</dl>
+
+<dd>
+memory storePointer: YIndex</dd>
+
+<dl>
+<dd>
+ofObject: pointResult</dd>
+
+<dd>
+withValue: integerArgument.</dd>
+</dl>
+
+<dd>
+self push: pointResult]</dd>
+</dl>
+
+<dd>
+ifFalse: [self unPop: 2]</dd>
+</dl>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>initializePointIndices</b></dd>
+
+<dl>
+<dd>
+XIndex := 0.</dd>
+
+<dd>
+YIndex := 1.</dd>
+
+<dd>
+ClassPointSize := 2</dd>
+</dl>
+</dl>
+The primitive indices 21 to 37 are the same as primitives 1 to 17 except
+that they perform their operations on large integers (instances of <tt>LargePositiveInteger</tt>
+and <tt>LargeNegativeInteger</tt>). There are adequate Smalltalk implementations
+for all of these operations so the primitive routines are optional and
+will not be specified in this chapter. To implement them, the corresponding
+Smalltalk methods should be translated into machine language routines.
+<dl>
+<dd>
+<b>dispatchLargeIntegerPrimitives</b></dd>
+
+<dl>
+<dd>
+self primitiveFail</dd>
+</dl>
+</dl>
+Instances of <tt>Float</tt> are represented in IEEE single-precision (32-bit)
+format. This format represents a floating point quantity as a number between
+one and two, a power of two, and a sign. A <tt>Float</tt> is a word-size,
+nonpointer object. The most significant bit of the first field indicates
+the sign of the number (1 means negative). The next eight most significant
+bits of the first field are the 8-bit exponent of two biased by 127 (0
+means an exponent of -127, 128 means an exponent of 1, and so on). The
+seven least significant bits of the first field are the seven most significant
+bits of the fractional part of the number between one and two. The fractional
+part is 23 bits long and its 16 least significant bits are the contents
+of the second field of the <tt>Float</tt>. So a <tt>Float</tt> whose fields
+are
+<dl>
+<dd>
+<b>SEEEEEEE EFFFFFFF FFFFFFFF FFFFFFFF</b></dd>
+</dl>
+represents the value
+<dl>
+<dd>
+-1<b><sup>S</sup></b> * 2<sup><b>E</b>-127</sup> * 1.<b>F</b></dd>
+</dl>
+0 is represented as both fields = 0. The floating point primitives fail
+if the argument is not an instance of <tt>Float</tt> or if the result cannot
+be represented as a <tt>Float</tt>. This specification of the Smalltalk-80
+virtual machine does not specifically include the parts of the IEEE standard
+other than the representation of floating point numbers. The implementation
+of routines that perform the necessary operations on floating point values
+is left to the implementer.
+<br>&nbsp;&nbsp;&nbsp; The <tt>primitiveAsFloat</tt> routine converts its
+<tt>SmallInteger</tt>
+receiver into a <tt>Float</tt>. The routines for primitives 41 through
+50 perform the same operations as 1 through 10 or 21 through 30, except
+that they operate on <tt>Floats</tt>. The <tt>primitiveTruncated</tt> routine
+returns a <tt>SmallInteger</tt> equal to the value of the receiver without
+any fractional part. It fails if its truncated value cannot be represented
+as a <tt>SmallInteger</tt>. The <tt>primitiveFractionalPart</tt> returns
+the difference between the receiver and its truncated value. The
+<tt>primitiveExponent</tt>
+routine returns the exponent of the receiver and the <tt>primitiveTimesTwoPower</tt>
+routine increases the exponent by an amount specified by the argument.
+<dl>
+<dd>
+<b>dispatchFloatPrimitives</b></dd>
+
+<dl>
+<dd>
+primitiveIndex = 40 ifTrue: [^self primitiveAsFloat].</dd>
+
+<dd>
+primitiveIndex = 41 ifTrue: [^self primitiveFloatAdd].</dd>
+
+<dd>
+primitiveIndex = 42 ifTrue: [^self primitiveFloatSubtract].</dd>
+
+<dd>
+primitiveIndex = 43 ifTrue: [^self primitiveFloatLessThan].</dd>
+
+<dd>
+primitiveIndex = 44 ifTrue: [^self primitiveFloatGreaterThan].</dd>
+
+<dd>
+primitiveIndex = 45 ifTrue: [^self primitiveFloatLessOrEqual].</dd>
+
+<dd>
+primitiveIndex = 46 ifTrue: [^self primitiveFloatGreaterOrEqual].</dd>
+
+<dd>
+primitiveIndex = 47 ifTrue: [^self primitiveFloatEqual].</dd>
+
+<dd>
+primitiveIndex = 48 ifTrue: [^self primitiveFloatNotEqual].</dd>
+
+<dd>
+primitiveIndex = 49 ifTrue: [^self primitiveFloatMultiply].</dd>
+
+<dd>
+primitiveIndex = 50 ifTrue: [^self primitiveFloatDivide].</dd>
+
+<dd>
+primitiveIndex = 51 ifTrue: [^self primitiveTruncated].</dd>
+
+<dd>
+primitiveIndex = 52 ifTrue: [^self primitiveFractionalPart].</dd>
+
+<dd>
+primitiveIndex = 53 ifTrue: [^self primitiveExponent].</dd>
+
+<dd>
+primitiveIndex = 54 ifTrue: [^self primitiveTimesTwoPower]</dd>
+</dl>
+</dl>
+
+<center>
+<hr size="1" width="80%"><a name="ArrayAndStreamPrimitives29"></a><b><font color="#3333FF"><font size="+2">Array
+and Stream Primitives</font></font></b>
+<hr size="1" width="80%"></center>
+The second set of primitive routines are for manipulating the indexable
+fields of objects both directly, by subscripting, and indirectly, by streaming.
+These routines make use of the 16-bit positive integer routines, since
+the limit on indexable fields is 65534.
+<dl>
+<dd>
+<b>dispatchSubscriptAndStreamPrimitives</b></dd>
+
+<dl>
+<dd>
+primitiveIndex = 60 ifTrue: [^self primitiveAt].</dd>
+
+<dd>
+primitiveIndex = 61 ifTrue: [^self primitiveAtPut].</dd>
+
+<dd>
+primitiveIndex = 62 ifTrue: [^self primitiveSize].</dd>
+
+<dd>
+primitiveIndex = 63 ifTrue: [^self primitiveStringAt].</dd>
+
+<dd>
+primitiveIndex = 64 ifTrue: [^self primitiveStringAtPut].</dd>
+
+<dd>
+primitiveIndex = 65 ifTrue: [^self primitiveNext].</dd>
+
+<dd>
+primitiveIndex = 66 ifTrue: [^self primitiveNextPut].</dd>
+
+<dd>
+primitiveIndex = 67 ifTrue: [^self primitiveAtEnd]</dd>
+</dl>
+</dl>
+The following routines are used to check the bounds on subscripting operations
+and to perform the subscripting accesses. They determine whether the object
+being indexed contains pointers, 16-bit integer values, or 8-bit integer
+values, in its indexable fields. The <tt>checkIndexableBoundsOf:in:</tt>
+routine takes a one-relative index and determines whether it is a legal
+subscript of an object. It must take into account any fixed fields.
+<dl>
+<dd>
+<b>checkIndexableBoundsOf: index in: array</b></dd>
+
+<dl>
+<dd>
+| class |</dd>
+
+<dd>
+class := memory fetchClassOf: array.</dd>
+
+<dd>
+self success: index &gt;= 1.</dd>
+
+<dd>
+self success: index + (self fixedFieldsOf: class) &lt;= (self lengthOf:
+array)</dd>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>lengthOf: array</b></dd>
+
+<dl>
+<dd>
+(self isWords: (memory fetchClassOf: array))</dd>
+
+<dl>
+<dd>
+ifTrue: [^memory fetchWordLengthOf: array]</dd>
+
+<dd>
+ifFalse: [^memory fetchByteLengthOf: array]</dd>
+</dl>
+</dl>
+</dl>
+The <tt>subscript:with:</tt> and <tt>subscript:with:storing:</tt> routines
+assume that the number of fixed fields has been added into the index, so
+they use it as a one-relative index into the object as a whole.
+<dl>
+<dd>
+<b>subscript: array with: index</b></dd>
+
+<dl>
+<dd>
+| class value |</dd>
+
+<dd>
+class := memory fetchClassOf: array.</dd>
+
+<dd>
+(self isWords: class)</dd>
+
+<dl>
+<dd>
+ifTrue: [(self isPointers: class)</dd>
+
+<dl>
+<dl>
+<dd>
+ifTrue: [^memory fetchPointer: index - 1</dd>
+
+<dl>
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ofObject: array]</dd>
+</dl>
+</dl>
+
+<dd>
+ifFalse: [value := memory fetchWord: index - 1</dd>
+
+<dl>
+<dl>
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ofObject: array.</dd>
+</dl>
+</dl>
+
+<dd>
+^self positive16BitIntegerFor: value]]</dd>
+</dl>
+</dl>
+</dl>
+
+<dd>
+ifFalse: [value := memory fetchByte: index - 1</dd>
+
+<dl>
+<dl>
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ofObject: array.</dd>
+</dl>
+</dl>
+
+<dd>
+^memory integerObjectOf: value]</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>subscript: array with: index storing: value</b></dd>
+
+<dl>
+<dd>
+| class |</dd>
+
+<dd>
+class := memory fetchClassOf: array.</dd>
+
+<dd>
+(self isWords: class)</dd>
+
+<dl>
+<dd>
+ifTrue: [(self isPointers: class)</dd>
+
+<dl>
+<dl>
+<dd>
+ifTrue: [^memory storePointer: index - 1</dd>
+
+<dl>
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ofObject: array</dd>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; withValue: value]</dd>
+</dl>
+</dl>
+
+<dd>
+ifFalse: [self success: (memory isIntegerObject: value).</dd>
+
+<dl>
+<dd>
+self success ifTrue:</dd>
+
+<dl>
+<dd>
+[^memory storeWord: index - 1</dd>
+
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp; ofObject: array</dd>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp; withValue: (self positive16BitValueOf: value)]]]</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+</dl>
+
+<dd>
+ifFalse: [self success: (memory isIntegerObject: value).</dd>
+
+<dl>
+<dd>
+self success ifTrue:</dd>
+
+<dl>
+<dd>
+[^memory storeByte: index - 1</dd>
+
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp; ofObject: array</dd>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp; withValue: (self lowByteOf: (memory integerValueOf:
+value))]]</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+</dl>
+</dl>
+The <tt>primitiveAt</tt> and <tt>primitiveAtPut</tt> routines simply fetch
+or store one of the indexable fields of the receiver. They fail if the
+index is not a <tt>SmallInteger</tt> or if it is out of bounds.
+<dl>
+<dd>
+<b>primitiveAt</b></dd>
+
+<dl>
+<dd>
+| index array arrayClass result |</dd>
+
+<dd>
+index := self positive16BitValueOf: self popStack.</dd>
+
+<dd>
+array := self popStack.</dd>
+
+<dd>
+arrayClass := memory fetchClassOf: array.</dd>
+
+<dd>
+self checkIndexableBoundsOf: index in: array.</dd>
+
+<dd>
+self success</dd>
+
+<dl>
+<dd>
+ifTrue: [index := index + (self fixedFieldsOf: arrayClass).</dd>
+
+<dl>
+<dd>
+result := self subscript: array with: index].</dd>
+</dl>
+</dl>
+
+<dd>
+self success</dd>
+
+<dl>
+<dd>
+ifTrue: [self push: result]</dd>
+
+<dd>
+ifFalse: [self unPop: 2]</dd>
+</dl>
+</dl>
+</dl>
+The <tt>primitiveAtPut</tt> routine also fails if the receiver is not a
+pointer type and the second argument is not an 8-bit (for byte-indexable
+objects) or 16-bit (for word-indexable objects) positive integer. The primitive
+routine returns the stored value as its value.
+<dl>
+<dd>
+<b>primitiveAtPut</b></dd>
+
+<dl>
+<dd>
+| array index arrayClass value result |</dd>
+
+<dd>
+value := self popStack.</dd>
+
+<dd>
+index := self positive16BitValueOf: self popStack.</dd>
+
+<dd>
+array := self popStack.</dd>
+
+<dd>
+arrayClass := memory fetchClassOf: array.</dd>
+
+<dd>
+self checkIndexableBoundsOf: index in: array.</dd>
+
+<dd>
+self success</dd>
+
+<dl>
+<dd>
+ifTrue: [index := index + (self fixedFieldsOf: arrayClass).</dd>
+
+<dl>
+<dd>
+self subscript: array with: index storing: value].</dd>
+</dl>
+</dl>
+
+<dd>
+self success</dd>
+
+<dl>
+<dd>
+ifTrue: [self push: value]</dd>
+
+<dd>
+ifFalse: [self unPop: 3]</dd>
+</dl>
+</dl>
+</dl>
+The <tt>primitiveSize</tt> routine returns the number of indexable fields
+the receiver has (i.e., the largest legal subscript).
+<dl>
+<dd>
+<b>primitiveSize</b></dd>
+
+<dl>
+<dd>
+| array class length |</dd>
+
+<dd>
+array := self popStack.</dd>
+
+<dd>
+class := memory fetchClassOf: array.</dd>
+
+<dd>
+length := self positive16BitIntegerFor: (self lengthOf: array) - (self
+fixedFieldsOf: class).</dd>
+
+<dd>
+self success</dd>
+
+<dl>
+<dd>
+ifTrue: [self push: length]</dd>
+
+<dd>
+ifFalse: [self unPop: 1]</dd>
+</dl>
+</dl>
+</dl>
+The <tt>primitiveStringAt</tt> and <tt>primitiveStringAtPut</tt> routines
+are special responses to the <tt>at:</tt> and <tt>at:put:</tt> messages
+by instances of <tt>String</tt>. A <tt>String</tt> actually stores 8-bit
+numbers in byte-indexable fields, but it communicates through the <tt>at:</tt>
+and <tt>at:put:</tt> messages with instances of <tt>Character</tt>. A <tt>Character</tt>
+has a single instance variable that holds a <tt>SmallInteger</tt>. The
+value of the <tt>SmallInteger</tt> returned from the <tt>at:</tt> message
+is then stored in the indicated field of the <tt>String</tt>. The <tt>primitiveStringAt</tt>
+routine always returns the same instance of <tt>Character</tt> for any
+particular value. It gets the <tt>Characters</tt> from an <tt>Array</tt>
+in the object memory that has a guaranteed object pointer called <tt>CharacterTablePointer</tt>.
+<dl>
+<dd>
+<b>primitiveStringAt</b></dd>
+
+<dl>
+<dd>
+| index array ascii character |</dd>
+
+<dd>
+index := self positive16BitValueOf: self popStack.</dd>
+
+<dd>
+array := self popStack.</dd>
+
+<dd>
+self checkIndexableBoundsOf: index in: array.</dd>
+
+<dd>
+self success</dd>
+
+<dl>
+<dd>
+ifTrue: [ascii := memory integerValueOf: (self subscript: array with: index).</dd>
+
+<dl>
+<dd>
+character := memory fetchPointer: ascii</dd>
+
+<dl>
+<dl>
+<dl>
+<dd>
+&nbsp;ofObject: CharacterTablePointer].</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+</dl>
+
+<dd>
+self success</dd>
+
+<dl>
+<dd>
+ifTrue:[self push: character]</dd>
+
+<dd>
+ifFalse: [self unPop: 2]</dd>
+</dl>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>initializeCharacterIndex</b></dd>
+
+<dl>
+<dd>
+CharacterValueIndex := 0</dd>
+</dl>
+</dl>
+The <tt>primitiveStringAtPut</tt> routine stores the value of a <tt>Character</tt>
+in one of the receiver's indexable bytes. It fails if the second argument
+of the <tt>at:put:</tt> message is not a <tt>Character</tt>.
+<dl>
+<dd>
+<b>primitiveStringAtPut</b></dd>
+
+<dl>
+<dd>
+| index array ascii character |</dd>
+
+<dd>
+character := self popStack.</dd>
+
+<dd>
+index := self positive16BitValueOf: self popStack.</dd>
+
+<dd>
+array := self popStack.</dd>
+
+<dd>
+self checkIndexableBoundsOf: index in: array.</dd>
+
+<dd>
+self success: (memory fetchClassOf: character) = ClassCharacterPointer.</dd>
+
+<dd>
+self success</dd>
+
+<dl>
+<dd>
+ifTrue: [ascii := memory fetchPointer: CharacterValueIndex</dd>
+
+<dl>
+<dl>
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ofObject: character.</dd>
+</dl>
+</dl>
+
+<dd>
+self subscript: array with: index storing: ascii].</dd>
+</dl>
+</dl>
+
+<dd>
+self success</dd>
+
+<dl>
+<dd>
+ifTrue: [self push: character]</dd>
+
+<dd>
+ifFalse: [self unPop: 3]</dd>
+</dl>
+</dl>
+</dl>
+The <tt>primitiveNext</tt>, <tt>primitiveNextPut</tt>, and <tt>primitiveAtEnd</tt>
+routines are optional primitive versions of the Smalltalk code for the
+<tt>next</tt>,
+<tt>nextPut:</tt>,
+and <tt>atEnd</tt> messages to streams. The <tt>primitiveNext</tt> and
+<tt>primitiveNextPut</tt>
+routines only work if the object being streamed is an <tt>Array</tt> or
+a <tt>String</tt>.
+<dl>
+<dd>
+<b>initializeStreamIndices</b></dd>
+
+<dl>
+<dd>
+StreamArrayIndex := 0.</dd>
+
+<dd>
+StreamIndexIndex := 1.</dd>
+
+<dd>
+StreamReadLimitIndex := 2.</dd>
+
+<dd>
+StreamWriteLimitIndex := 3</dd>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>primitiveNext</b></dd>
+
+<dl>
+<dd>
+| stream index limit array arrayClass result ascii |</dd>
+
+<dd>
+stream := self popStack.</dd>
+
+<dd>
+array := memory fetchPointer: StreamArrayIndex</dd>
+
+<dl>
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp; ofObject: stream.</dd>
+</dl>
+</dl>
+
+<dd>
+arrayClass := memory fetchClassOf: array.</dd>
+
+<dd>
+index := self fetchInteger: StreamIndexIndex</dd>
+
+<dl>
+<dl>
+<dd>
+ofObject: stream.</dd>
+</dl>
+</dl>
+
+<dd>
+limit := self fetchInteger: StreamReadLimitIndex</dd>
+
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ofObject: stream.</dd>
+</dl>
+
+<dd>
+self success: index &lt; limit.</dd>
+
+<dd>
+self success: (arrayClass ~= ClassArrayPointer) | (arrayClass = ClassStringPointer).</dd>
+
+<dd>
+self checkIndexableBoundsOf: index + 1</dd>
+
+<dl>
+<dd>
+in: array.</dd>
+</dl>
+
+<dd>
+self success</dd>
+
+<dl>
+<dd>
+ifTrue: [index := index + 1.</dd>
+
+<dl>
+<dd>
+result := self subscript: array</dd>
+
+<dl>
+<dl>
+<dd>
+with: index].</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+
+<dd>
+self success</dd>
+
+<dl>
+<dd>
+ifTrue: [self storeInteger: StreamIndexIndex</dd>
+
+<dl>
+<dl>
+<dd>
+ofObject: stream</dd>
+
+<dd>
+withValue: index].</dd>
+</dl>
+</dl>
+</dl>
+
+<dd>
+self success</dd>
+
+<dl>
+<dd>
+ifTrue: [arrayClass = ClassArrayPointer</dd>
+
+<dl>
+<dl>
+<dd>
+ifTrue: [self push: result]</dd>
+
+<dd>
+ifFalse: [ascii := memory integerValueOf: result.</dd>
+
+<dl>
+<dd>
+self push: (memory fetchPointer: ascii</dd>
+
+<dl>
+<dl>
+<dl>
+<dd>
+ofObject: CharacterTablePointer)]]</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+</dl>
+</dl>
+
+<dd>
+ifFalse: [self unPop: 1]</dd>
+</dl>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>primitiveNextPut</b></dd>
+
+<dl>
+<dd>
+| value stream index limit array arrayClass result ascii |</dd>
+
+<dd>
+value := self popStack.</dd>
+
+<dd>
+stream := self popStack.</dd>
+
+<dd>
+array := memory fetchPointer: StreamArrayIndex</dd>
+
+<dl>
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp; ofObject: stream.</dd>
+</dl>
+</dl>
+
+<dd>
+arrayClass := memory fetchClassOf: array.</dd>
+
+<dd>
+index := self fetchInteger: StreamIndexIndex</dd>
+
+<dl>
+<dl>
+<dd>
+ofObject: stream.</dd>
+</dl>
+</dl>
+
+<dd>
+limit := self fetchInteger: StreamWriteLimitIndex</dd>
+
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ofObject: stream.</dd>
+</dl>
+
+<dd>
+self success: index &lt; limit.</dd>
+
+<dd>
+self success: (arrayClass = ClassArrayPointer) | (arrayClass = ClassStringPointer).</dd>
+
+<dd>
+self checkIndexableBoundsOf: index + 1</dd>
+
+<dl>
+<dd>
+in: array.</dd>
+</dl>
+
+<dd>
+self success</dd>
+
+<dl>
+<dd>
+ifTrue: [index := index + 1.</dd>
+
+<dl>
+<dd>
+arrayClass = ClassArrayPointer</dd>
+
+<dl>
+<dd>
+ifTrue: [self subscript: array</dd>
+
+<dl>
+<dl>
+<dd>
+with: index</dd>
+
+<dd>
+storing: value]</dd>
+</dl>
+</dl>
+
+<dd>
+ifFalse: [ascii := memory fetchPointer: CharacterValueIndex</dd>
+
+<dl>
+<dl>
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ofObject: value.</dd>
+</dl>
+</dl>
+
+<dd>
+self subscript: array</dd>
+
+<dl>
+<dd>
+with: index</dd>
+
+<dd>
+storing: ascii]].</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+</dl>
+
+<dd>
+self success</dd>
+
+<dl>
+<dd>
+ifTrue: [self storeInteger: StreamIndexIndex</dd>
+
+<dl>
+<dl>
+<dd>
+ofObject: stream</dd>
+
+<dd>
+withValue: index].</dd>
+</dl>
+</dl>
+</dl>
+
+<dd>
+self success</dd>
+
+<dl>
+<dd>
+ifTrue: [self push: value]</dd>
+
+<dd>
+ifFalse: [self unPop: 2]</dd>
+</dl>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>primitiveAtEnd</b></dd>
+
+<dl>
+<dd>
+| stream array arrayClass index limit |</dd>
+
+<dd>
+stream := self popStack.</dd>
+
+<dd>
+array := memory fetchPointer: StreamArrayIndex</dd>
+
+<dl>
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp; ofObject: stream.</dd>
+</dl>
+</dl>
+
+<dd>
+arrayClass := memory fetchClassOf: array.</dd>
+
+<dd>
+index := self fetchInteger: StreamIndexIndex</dd>
+
+<dl>
+<dl>
+<dd>
+ofObject: stream.</dd>
+</dl>
+</dl>
+
+<dd>
+limit := self fetchInteger: StreamReadLimitIndex</dd>
+
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ofObject: stream.</dd>
+</dl>
+
+<dd>
+self success: (arrayClass = ClassArrayPointer) | (arrayClass = ClassStringPointer).</dd>
+
+<dd>
+self success</dd>
+
+<dl>
+<dd>
+ifTrue: [(index &gt;= limit)</dd>
+
+<dl>
+<dl>
+<dd>
+ifTrue: [self push: TruePointer]</dd>
+
+<dd>
+ifFalse: [self push: FalsePointer]]</dd>
+</dl>
+</dl>
+
+<dd>
+ifFalse: [self unPop: 1]</dd>
+</dl>
+</dl>
+</dl>
+
+<center>
+<hr size="1" width="80%"><a name="StorageManagementPrimitives29"></a><b><font color="#3333FF"><font size="+2">Storage
+Management Primitives</font></font></b>
+<hr size="1" width="80%"></center>
+The storage management primitive routines manipulate the representation
+of objects. They include primitives for manipulating object pointers, accessing
+fields, creating new instances of a class, and enumerating the instances
+of a class.
+<dl>
+<dd>
+<b>dispatchStorageManagementPrimitives</b></dd>
+
+<dl>
+<dd>
+primitiveIndex = 68 ifTrue: [^self primitiveObjectAt].</dd>
+
+<dd>
+primitiveIndex = 69 ifTrue: [^self primitiveObjectAtPut].</dd>
+
+<dd>
+primitiveIndex = 70 ifTrue: [^self primitiveNew].</dd>
+
+<dd>
+primitiveIndex = 71 ifTrue: [^self primitiveNewWithArg].</dd>
+
+<dd>
+primitiveIndex = 72 ifTrue: [^self primitiveBecome].</dd>
+
+<dd>
+primitiveIndex = 73 ifTrue: [^self primitiveInstVarAt].</dd>
+
+<dd>
+primitiveIndex = 74 ifTrue: [^self primitiveInstVarAtPut].</dd>
+
+<dd>
+primitiveIndex = 75 ifTrue: [^self primitiveAsOop].</dd>
+
+<dd>
+primitiveIndex = 76 ifTrue: [^self primitiveAsObject].</dd>
+
+<dd>
+primitiveIndex = 77 ifTrue: [^self primitiveSomeInstance].</dd>
+
+<dd>
+primitiveIndex = 78 ifTrue: [^self primitiveNextInstance].</dd>
+
+<dd>
+primitiveIndex = 79 ifTrue: [^self primitiveNewMethod]</dd>
+</dl>
+</dl>
+The <tt>primitiveObjectAt</tt> and <tt>primitiveObjectAtPut</tt> routines
+are associated with the <tt>objectAt:</tt> and <tt>objectAt:put:</tt> messages
+in <tt>CompiledMethod</tt>. They provide access to the object pointer fields
+of the receiver (the method header and the literals) from Smalltalk. The
+header is accessed with an index of 1 and the literals are accessed with
+indices 2 through the number of literals plus 1. These messages are used
+primarily by the compiler.
+<dl>
+<dd>
+<b>primitiveObjectAt</b></dd>
+
+<dl>
+<dd>
+| thisReceiver index |</dd>
+
+<dd>
+index := self popInteger.</dd>
+
+<dd>
+thisReceiver := self popStack.</dd>
+
+<dd>
+self success: index &gt; 0.</dd>
+
+<dd>
+self success: index &lt;= (self objectPointerCountOf: thisReceiver).</dd>
+
+<dd>
+self success</dd>
+
+<dl>
+<dd>
+ifTrue: [self push: (memory fetchPointer: index - 1</dd>
+
+<dl>
+<dl>
+<dl>
+<dl>
+<dd>
+ofObject: thisReceiver)]</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+
+<dd>
+ifFalse: [self unPop: 2]</dd>
+</dl>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>primitiveObjectAtPut</b></dd>
+
+<dl>
+<dd>
+| thisReceiver index newValue |</dd>
+
+<dd>
+newValue := self popStack.</dd>
+
+<dd>
+index := self popInteger.</dd>
+
+<dd>
+thisReceiver := self popStack.</dd>
+
+<dd>
+self success: index &gt; 0.</dd>
+
+<dd>
+self success: index &lt;= (self objectPointerCountOf: thisReceiver).</dd>
+
+<dd>
+self success</dd>
+
+<dl>
+<dd>
+ifTrue: [memory storePointer: index - 1</dd>
+
+<dl>
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ofObject: thisReceiver</dd>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; withValue: newValue.</dd>
+</dl>
+
+<dd>
+self push: newValue]</dd>
+</dl>
+
+<dd>
+ifFalse: [self unPop: 3]</dd>
+</dl>
+</dl>
+</dl>
+The <tt>primitiveNew</tt> routine creates a new instance of the receiver
+(a class) without indexable fields. The primitive fails if the class is
+indexable.
+<dl>
+<dd>
+<b>primitiveNew</b></dd>
+
+<dl>
+<dd>
+| class size |</dd>
+
+<dd>
+class := self popStack.</dd>
+
+<dd>
+size := self fixedFieldsOf: class.</dd>
+
+<dd>
+self success: (self isIndexable: class) == false.</dd>
+
+<dd>
+self success</dd>
+
+<dl>
+<dd>
+ifTrue: [(self isPointers: class)</dd>
+
+<dl>
+<dl>
+<dd>
+ifTrue: [self push: (memory instantiateClass: class</dd>
+
+<dl>
+<dl>
+<dl>
+<dl>
+<dd>
+withPointers: size)]</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+
+<dd>
+ifFalse: [self push: (memory instantiateClass: class</dd>
+
+<dl>
+<dl>
+<dl>
+<dl>
+<dd>
+&nbsp;withWords: size)]]</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+</dl>
+</dl>
+
+<dd>
+ifFalse: [self unPop: 1]</dd>
+</dl>
+</dl>
+</dl>
+The <tt>primitiveNewWithArg</tt> routine creates a new instance of the
+receiver (a class) with the number of indexable fields specified by the
+integer argument. The primitive fails if the class is not indexable.
+<dl>
+<dd>
+<b>primitiveNewWithArg</b></dd>
+
+<dl>
+<dd>
+| size class |</dd>
+
+<dd>
+size := self positive16BitValueOf: self popStack.</dd>
+
+<dd>
+class := self popStack.</dd>
+
+<dd>
+self success: (self isIndexable: class).</dd>
+
+<dd>
+self success</dd>
+
+<dl>
+<dd>
+ifTrue: [size := size + (self fixedFieldsOf: class).</dd>
+
+<dl>
+<dd>
+(self isPointers: class)</dd>
+
+<dl>
+<dd>
+ifTrue: [self push: (memory instantiateClass: class</dd>
+
+<dl>
+<dl>
+<dl>
+<dl>
+<dd>
+withPointers: size)]</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+
+<dd>
+ifFalse: [(self isWords: class)</dd>
+
+<dl>
+<dl>
+<dd>
+ifTrue: [self push: (memory instantiateClass: class</dd>
+
+<dl>
+<dl>
+<dl>
+<dl>
+<dd>
+withWords: size)]</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+
+<dd>
+ifFalse: [self push: (memory instantiateClass: class</dd>
+
+<dl>
+<dl>
+<dl>
+<dl>
+<dd>
+withBytes: size)]]]</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+</dl>
+</dl>
+</dl>
+</dl>
+
+<dd>
+ifFalse: [self unPop: 2]</dd>
+</dl>
+</dl>
+</dl>
+The <tt>primitiveBecome</tt> routine swaps the instance pointers of the
+receiver and argument. This means that all objects that used to point to
+the receiver now point to the argument and vice versa.
+<dl>
+<dd>
+<b>primitiveBecome</b></dd>
+
+<dl>
+<dd>
+| thisReceiver otherPointer |</dd>
+
+<dd>
+otherPointer := self popStack.</dd>
+
+<dd>
+thisReceiver := self popStack.</dd>
+
+<dd>
+self success: (memory isIntegerObject: otherPointer) not.</dd>
+
+<dd>
+self success: (memory isIntegerObject: thisReceiver) not.</dd>
+
+<dd>
+self success</dd>
+
+<dl>
+<dd>
+ifTrue: [memory swapPointersOf: thisReceiver and: otherPointer.</dd>
+
+<dl>
+<dd>
+self push: thisReceiver]</dd>
+</dl>
+
+<dd>
+ifFalse: [self unPop: 2]</dd>
+</dl>
+</dl>
+</dl>
+The <tt>primitiveInstVarAt</tt> and <tt>primitiveInstVarAtPut</tt> routines
+are associated with the <tt>instVarAt:</tt> and <tt>instVarAt:put:</tt>
+messages in <tt>Object</tt>. They are similar to <tt>primitiveAt</tt> and
+<tt>primitiveAtPut</tt>
+except that the numbering of fields starts with the fixed fields (corresponding
+to named instance variables) instead of with the indexable fields. The
+indexable fields are numbered starting with one more than the number of
+fixed fields. These routines need a different routine to check the bounds
+of the subscript.
+<dl>
+<dd>
+<b>checkInstanceVariableBoundsOf: index in: object</b></dd>
+
+<dl>
+<dd>
+| class |</dd>
+
+<dd>
+class := memory fetchClassOf: object.</dd>
+
+<dd>
+self success: index &gt;= 1.</dd>
+
+<dd>
+self success: index &lt;= (self lengthOf: object)</dd>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>primitiveInstVarAt</b></dd>
+
+<dl>
+<dd>
+| this Receiver index value |</dd>
+
+<dd>
+index := self popInteger.</dd>
+
+<dd>
+thisReceiver := self popStack.</dd>
+
+<dd>
+self checkInstanceVariableBoundsOf: index</dd>
+
+<dl>
+<dd>
+in: thisReceiver.</dd>
+</dl>
+
+<dd>
+self success</dd>
+
+<dl>
+<dd>
+ifTrue: [value := self subscript: thisReceiver</dd>
+
+<dl>
+<dl>
+<dl>
+<dd>
+with: index].</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+
+<dd>
+self success</dd>
+
+<dl>
+<dd>
+ifTrue: [self push: value]</dd>
+
+<dd>
+ifFalse: [self unPop: 2]</dd>
+</dl>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>primitiveInstVarAtPut</b></dd>
+
+<dl>
+<dd>
+| thisReceiver index newValue realValue |</dd>
+
+<dd>
+newValue := self popStack.</dd>
+
+<dd>
+index := self popInteger.</dd>
+
+<dd>
+thisReceiver := self popStack.</dd>
+
+<dd>
+self checkInstanceVariableBoundsOf: index</dd>
+
+<dl>
+<dd>
+in: thisReceiver.</dd>
+</dl>
+
+<dd>
+self success</dd>
+
+<dl>
+<dd>
+ifTrue: [ self subscript: thisReceiver</dd>
+
+<dl>
+<dl>
+<dd>
+with: index</dd>
+
+<dd>
+storing: newValue].</dd>
+</dl>
+</dl>
+</dl>
+
+<dd>
+self success</dd>
+
+<dl>
+<dd>
+ifTrue: [self push: newValue]</dd>
+
+<dd>
+ifFalse: [self unPop: 3]</dd>
+</dl>
+</dl>
+</dl>
+The <tt>primitiveAsOop</tt> routine produces a <tt>SmallInteger</tt> whose
+value is half of the receiver's object pointer (interpreting object pointers
+as 16-bit signed quantities). The primitive only works for non-<tt>SmallInteger</tt>
+receivers. Since non-<tt>SmallInteger</tt> object pointers are even, no
+information in the object pointer is lost. Because of the encoding of <tt>SmallIntegers</tt>,
+the halving operation can be performed by setting the least significant
+bit of the receiver's object pointer.
+<dl>
+<dd>
+<b>primitiveAsOop</b></dd>
+
+<dl>
+<dd>
+| thisReceiver |</dd>
+
+<dd>
+thisReceiver := self popStack.</dd>
+
+<dd>
+self success: (memory isIntegerObject: thisReceiver) == false.</dd>
+
+<dd>
+self success</dd>
+
+<dl>
+<dd>
+ifTrue: [self push: (thisReceiver bitOr: 1)]</dd>
+
+<dd>
+ifFalse: [self unPop: 1]</dd>
+</dl>
+</dl>
+</dl>
+The <tt>primitiveAsObject</tt> routine performs the inverse operation of
+<tt>primitiveAsOop</tt>.
+It only works for <tt>SmallInteger</tt> receivers (it is associated with
+the <tt>asObject</tt> message in <tt>SmallInteger</tt>). It produces the
+object pointer that is twice the receiver's value. The primitive fails
+if there is no object for that pointer.
+<dl>
+<dd>
+<b>primitiveAsObject</b></dd>
+
+<dl>
+<dd>
+| thisReceiver newOop |</dd>
+
+<dd>
+thisReceiver := self popStack.</dd>
+
+<dd>
+newOop := thisReceiver bitAnd: 16rFFFE.</dd>
+
+<dd>
+self success: (memory isIntegerObject: thisReceiver).</dd>
+
+<dd>
+self success</dd>
+
+<dl>
+<dd>
+ifTrue: [self push: newOop]</dd>
+
+<dd>
+ifFalse: [self unPop: 1]</dd>
+</dl>
+</dl>
+</dl>
+The <tt>primitiveSomeInstance</tt> and <tt>primitiveNextInstance</tt> routines
+allow for the enumeration of the instances of a class. They rely on the
+ability of the object memory to define an ordering on object pointers,
+to find the first instance of a class in that ordering, and, given an object
+pointer, to find the next instance of the same class.
+<dl>
+<dd>
+<b>primitiveSomeInstance</b></dd>
+
+<dl>
+<dd>
+| class |</dd>
+
+<dd>
+class := self popStack.</dd>
+
+<dd>
+(memory instancesOf: class)</dd>
+
+<dl>
+<dd>
+ifTrue: [self push: (memory initialInstanceOf: class)]</dd>
+
+<dd>
+ifFalse: [self primitiveFail]</dd>
+</dl>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>primitiveNextInstance</b></dd>
+
+<dl>
+<dd>
+| object |</dd>
+
+<dd>
+object := self popStack.</dd>
+
+<dd>
+(memory isLastInstance: object)</dd>
+
+<dl>
+<dd>
+ifTrue: [self primitiveFail]</dd>
+
+<dd>
+ifFalse: [self push: (memory instanceAfter: object)]</dd>
+</dl>
+</dl>
+</dl>
+The <tt>primitiveNewMethod</tt> routine is associated with the <tt>newMethod:header:</tt>
+message in <tt>CompiledMethod</tt> class. Instances of <tt>CompiledMethod</tt>
+are created with a special message. Since the part of a <tt>CompiledMethod</tt>
+that contains pointers instead of bytes is indicated in the header, all
+<tt>CompiledMethods</tt>
+must have a valid header. Therefore, <tt>CompiledMethods</tt> are created
+with a message (<tt>newMethod:header:</tt>) that takes the number of bytes
+as the first argument and the header as the second argument. The header,
+in turn, indicates the number of pointer fields.
+<dl>
+<dd>
+<b>primitiveNewMethod</b></dd>
+
+<dl>
+<dd>
+| header bytecodeCount class size |</dd>
+
+<dd>
+header := self popStack.</dd>
+
+<dd>
+bytecodeCount := self popInteger.</dd>
+
+<dd>
+class := self popStack.</dd>
+
+<dd>
+size := (self literalCountOfHeader: header) + 1 * 2 + bytecodeCount.</dd>
+
+<dd>
+self push: (memory instantiateClass: class</dd>
+
+<dl>
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; withBytes: size)</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+
+<center>
+<hr size="1" width="80%"><a name="ControlPrimitives29"></a><b><font color="#3333FF"><font size="+2">Control
+Primitives</font></font></b>
+<hr size="1" width="80%"></center>
+The control primitives provide the control structures not provided by the
+bytecodes. They include support for the behavior of <tt>BlockContexts</tt>,
+<tt>Processes</tt>,
+and <tt>Semaphores</tt>. They also provide for messages with parameterized
+selectors.
+<dl>
+<dd>
+<b>dispatchControlPrimitives</b></dd>
+
+<dl>
+<dd>
+primitiveIndex = 80 ifTrue: [^self primitiveBlockCopy].</dd>
+
+<dd>
+primitiveIndex = 81 ifTrue: [^self primitiveValue].</dd>
+
+<dd>
+primitiveIndex = 82 ifTrue: [^self primitiveValueWithArgs].</dd>
+
+<dd>
+primitiveIndex = 83 ifTrue: [^self primitivePerform].</dd>
+
+<dd>
+primitiveIndex = 84 ifTrue: [^self primitivePerformWithArgs].</dd>
+
+<dd>
+primitiveIndex = 85 ifTrue: [^self primitiveSignal].</dd>
+
+<dd>
+primitiveIndex = 86 ifTrue: [^self primitiveWait].</dd>
+
+<dd>
+primitiveIndex = 87 ifTrue: [^self primitiveResume].</dd>
+
+<dd>
+primitiveIndex = 88 ifTrue: [^self primitiveSuspend].</dd>
+
+<dd>
+primitiveIndex = 89 ifTrue: [^self primitiveFlushCache]</dd>
+</dl>
+</dl>
+The <tt>primitiveBlockCopy</tt> routine is associated with the <tt>blockCopy:</tt>
+message in both <tt>BlockContext</tt> and <tt>MethodContext</tt>. This
+message is only produced by the compiler. The number of block arguments
+the new <tt>BlockContext</tt> takes is passed as the argument. The <tt>primitiveBlockCopy</tt>
+routine creates a new instance of <tt>BlockContext</tt>. If the receiver
+is a <tt>MethodContext</tt>, it becomes the new <tt>BlockContext's</tt>
+home context. If the receiver is a <tt>BlockContext</tt>, its home context
+is used for the new <tt>BlockContext's</tt> home context.
+<dl>
+<dd>
+<b>primitiveBlockCopy</b></dd>
+
+<dl>
+<dd>
+| context methodContext blockArgumentCount newContext initialIP contextSize
+|</dd>
+
+<dd>
+blockArgumentCount := self popStack.</dd>
+
+<dd>
+context := self popStack.</dd>
+
+<dd>
+(self isBlockContext: context)</dd>
+
+<dl>
+<dd>
+ifTrue: [methodContext := memory fetchPointer: HomeIndex</dd>
+
+<dl>
+<dl>
+<dl>
+<dl>
+<dl>
+<dd>
+ofObject: context]</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+</dl>
+
+<dd>
+ifFalse: [methodContext := context].</dd>
+</dl>
+
+<dd>
+contextSize := memory fetchWordLengthOf: methodContext.</dd>
+
+<dd>
+newContext := memory instantiateClass: ClassBlockContextPointer</dd>
+
+<dl>
+<dl>
+<dl>
+<dd>
+&nbsp; withPointers: contextSize.</dd>
+</dl>
+</dl>
+</dl>
+
+<dd>
+initialIP := memory integerObjectOf: instructionPointer + 3.</dd>
+
+<dd>
+memory storePointer: initialIPIndex</dd>
+
+<dl>
+<dd>
+&nbsp;ofObject: newContext</dd>
+
+<dd>
+&nbsp;withValue: initialIP.</dd>
+</dl>
+
+<dd>
+memory storePointer: InstructionPointerIndex</dd>
+
+<dl>
+<dd>
+&nbsp;ofObject: newContext</dd>
+
+<dd>
+&nbsp;withValue: initialIP.</dd>
+</dl>
+
+<dd>
+self storeStackPointerValue: 0</dd>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; inContext: newContext.</dd>
+
+<dd>
+memory storePointer: BlockArgumentCountIndex</dd>
+
+<dl>
+<dd>
+&nbsp;ofObject: newContext</dd>
+
+<dd>
+&nbsp;withValue: blockArgumentCount.</dd>
+</dl>
+
+<dd>
+memory storePointer: HomeIndex</dd>
+
+<dl>
+<dd>
+&nbsp;ofObject: newContext</dd>
+
+<dd>
+&nbsp;withValue: methodContext.</dd>
+</dl>
+
+<dd>
+self push: newContext</dd>
+</dl>
+</dl>
+The <tt>primitiveValue</tt> routine is associated with all "<tt>value</tt>"
+messages in <tt>BlockContext</tt> (<tt>value</tt>, <tt>value:</tt>, <tt>value:value:</tt>,
+and so on). It checks that the receiver takes the same number of block
+arguments that the "<tt>value</tt>" message did and then transfers them
+from the active context's stack to the receiver's stack. The primitive
+fails if the number of arguments do not match. The <tt>primitiveValue</tt>
+routine also stores the active context in the receiver's caller field and
+initializes the receiver's instruction pointer and stack pointer. After
+the receiver has been initialized, it becomes the active context.
+<dl>
+<dd>
+<b>primitiveValue</b></dd>
+
+<dl>
+<dd>
+| blockContext blockArgumentCount initialIP |</dd>
+
+<dd>
+blockContext := self stackValue: argumentCount.</dd>
+
+<dd>
+blockArgumentCount := self argumentCountOfBlock: blockContext.</dd>
+
+<dd>
+self success: argumentCount = blockArgumentCount.</dd>
+
+<dd>
+self success</dd>
+
+<dl>
+<dd>
+ifTrue: [self transfer: argumentCount</dd>
+
+<dl>
+<dl>
+<dd>
+fromIndex: stackPointer - argumentCount + 1</dd>
+
+<dd>
+ofObject: activeContext</dd>
+
+<dd>
+toIndex: TempFrameStart</dd>
+
+<dd>
+ofObject: blockContext.</dd>
+</dl>
+
+<dd>
+self pops argumentCount + 1.</dd>
+
+<dd>
+initialIP := memory fetchPointer: initialIPIndex</dd>
+
+<dl>
+<dl>
+<dl>
+<dd>
+ofObject: blockContext.</dd>
+</dl>
+</dl>
+</dl>
+
+<dd>
+memory storePointer: InstructionPointerIndex</dd>
+
+<dl>
+<dd>
+&nbsp;ofObject: blockContext</dd>
+
+<dd>
+&nbsp;withValue: initialIP.</dd>
+</dl>
+
+<dd>
+self storeStackPointerValue: argumentCount</dd>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; inContext: blockContext.</dd>
+
+<dd>
+memory storePointer: CallerIndex</dd>
+
+<dl>
+<dd>
+&nbsp;ofObject: blockContext</dd>
+
+<dd>
+&nbsp;withValue: activeContext.</dd>
+</dl>
+
+<dd>
+self newActiveContext: blockContext]</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+The <tt>primitiveValueWithArgs</tt> routine is associated with the <tt>valueWithArguments:</tt>
+messages in <tt>BlockContext</tt>. It is basically the same as the <tt>primitiveValue</tt>
+routine except that the block arguments come in a single <tt>Array</tt>
+argument to the <tt>valueWithArguments:</tt> message instead of as multiple
+arguments to the "<tt>value</tt>" message.
+<dl>
+<dd>
+<b>primitiveValueWithArgs</b></dd>
+
+<dl>
+<dd>
+| argumentArray blockContext blockArgumentCount</dd>
+
+<dd>
+arrayClass arrayArgumentCount initialIP |</dd>
+
+<dd>
+argumentArray := self popStack.</dd>
+
+<dd>
+blockContext := self popStack.</dd>
+
+<dd>
+blockArgumentCount := self argumentCountOfBlock: blockContext.</dd>
+
+<dd>
+arrayClass := memory fetchClassOf: argumentArray.</dd>
+
+<dd>
+self success: (arrayClass = ClassArrayPointer).</dd>
+
+<dd>
+self success</dd>
+
+<dl>
+<dd>
+ifTrue: [arrayArgumentCount := memory fetchWordLengthOf: argumentArray.</dd>
+
+<dl>
+<dd>
+self success: arrayArgumentCount = blockArgumentCount].</dd>
+</dl>
+</dl>
+
+<dd>
+self success</dd>
+
+<dl>
+<dd>
+ifTrue: [self transfer: arrayArgumentCount</dd>
+
+<dl>
+<dl>
+<dd>
+fromIndex: 0</dd>
+
+<dd>
+ofObject: argumentArray</dd>
+
+<dd>
+toIndex: TempFrameStart</dd>
+
+<dd>
+ofObject: blockContext.</dd>
+</dl>
+
+<dd>
+initialIP := memory fetchPointer: initialIPIndex</dd>
+
+<dl>
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ofObject: blockContext.</dd>
+</dl>
+</dl>
+
+<dd>
+memory storePointer: InstructionPointerIndex</dd>
+
+<dl>
+<dd>
+&nbsp;ofObject: blockContext</dd>
+
+<dd>
+&nbsp;withValue: initialIP.</dd>
+</dl>
+
+<dd>
+self storeStackPointerValue: arrayArgumentCount</dd>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; inContext: blockContext.</dd>
+
+<dd>
+memory storePointer: CallerIndex</dd>
+
+<dl>
+<dd>
+&nbsp;ofObject: blockContext</dd>
+
+<dd>
+&nbsp;withValue: activeContext.</dd>
+</dl>
+
+<dd>
+self newActiveContext: blockContext]</dd>
+</dl>
+
+<dd>
+ifFalse: [self unPop: 2]</dd>
+</dl>
+</dl>
+</dl>
+The <tt>primitivePerform</tt> routine is associated with all "<tt>perform</tt>"
+messages in <tt>Object</tt> (<tt>perform:</tt>, <tt>perform:with:</tt>,
+<tt>perform:with:with:</tt>,
+and so on). It is equivalent to sending a message to the receiver whose
+selector is the first argument of and whose arguments are the remaining
+arguments. It is, therefore, similar to the <tt>sendSelector:argumentCount:</tt>
+routine except that it must get rid of the selector from the stack before
+calling <tt>executeNewMethod</tt> and it must check that the <tt>CompiledMethod</tt>
+it finds takes one less argument that the "<tt>perform</tt>" message did.
+The primitive fails if the number of arguments does not match.
+<dl>
+<dd>
+<b>primitivePerform</b></dd>
+
+<dl>
+<dd>
+| performSelector newReceiver selectorIndex |</dd>
+
+<dd>
+performSelector := messageSelector.</dd>
+
+<dd>
+messageSelector := self stackValue: argumentCount - 1.</dd>
+
+<dd>
+newReceiver := self stackValue: argumentCount.</dd>
+
+<dd>
+self lookupMethodInClass: (memory fetchClassOf: newReceiver).</dd>
+
+<dd>
+self success: (self argumentCountOf: newMethod) = (argumentCount - 1).</dd>
+
+<dd>
+self success</dd>
+
+<dl>
+<dd>
+ifTrue: [selectorIndex := stackPointer - argumentCount + 1.</dd>
+
+<dl>
+<dd>
+self transfer: argumentCount - 1</dd>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; fromIndex: selectorIndex + 1</dd>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ofObject: activeContext</dd>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; toIndex: selectorIndex</dd>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ofObject: activeContext.</dd>
+
+<dd>
+self pop: 1.</dd>
+
+<dd>
+argumentCount := argumentCount - 1.</dd>
+
+<dd>
+self executeNewMethod]</dd>
+</dl>
+
+<dd>
+ifFalse: [messageSelector := performSelector]</dd>
+</dl>
+</dl>
+</dl>
+The <tt>primitivePerformWithArgs</tt> routine is associated with the <tt>performWithArguments:</tt>
+messages in <tt>Object</tt>. It is basically the same as the <tt>primitivePerform</tt>
+routine except that the message arguments come in a single <tt>Array</tt>
+argument to the <tt>performWithArguments:</tt> message instead of as multiple
+arguments to the "<tt>perform</tt>" message.
+<dl>
+<dd>
+<b>primitivePerformWithArgs</b></dd>
+
+<dl>
+<dd>
+| thisReceiver performSelector argumentArray arrayClass arraySize index
+|</dd>
+
+<dd>
+argumentArray := self popStack.</dd>
+
+<dd>
+arraySize := memory fetchWordLengthOf: argumentArray.</dd>
+
+<dd>
+arrayClass := memory fetchClassOf: argumentArray.</dd>
+
+<dd>
+self success: (stackPointer + arraySize)</dd>
+
+<dl>
+<dl>
+<dl>
+<dd>
+&lt; (memory fetchWordLengthOf: activeContext).</dd>
+</dl>
+</dl>
+</dl>
+
+<dd>
+self success: (arrayClass = ClassArrayPointer)</dd>
+
+<dd>
+self success</dd>
+
+<dl>
+<dd>
+ifTrue: [performSelector := messageSelector.</dd>
+
+<dl>
+<dd>
+messageSelector := self popStack.</dd>
+
+<dd>
+thisReceiver := self stackTop.</dd>
+
+<dd>
+argumentCount := arraySize.</dd>
+
+<dd>
+index := 1.</dd>
+
+<dd>
+[index &lt;= argumentCount]</dd>
+
+<dl>
+<dd>
+whileTrue: [self push: (memory fetchPointer: index - 1</dd>
+
+<dl>
+<dl>
+<dl>
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp; ofObject: argumentArray).</dd>
+</dl>
+</dl>
+</dl>
+
+<dd>
+index := index + 1].</dd>
+</dl>
+</dl>
+
+<dd>
+self lookupMethodInClass: (memory fetchClassOf: thisReceiver).</dd>
+
+<dd>
+self success: (self argumentCountOf: newMethod) = argumentCount.</dd>
+
+<dd>
+self success</dd>
+
+<dl>
+<dd>
+ifTrue: [self executeNewMethod]</dd>
+
+<dd>
+ifFalse: [self pop: argumentCount.</dd>
+
+<dl>
+<dd>
+self push: messageSelector.</dd>
+
+<dd>
+self push: argumentArray.</dd>
+
+<dd>
+argumentCount := 2.</dd>
+
+<dd>
+messageSelector := performSelector]]</dd>
+</dl>
+</dl>
+</dl>
+
+<dd>
+ifFalse: [self unPop: 1]</dd>
+</dl>
+</dl>
+</dl>
+The next four primitive routines (for primitive indices 85 through 88)
+are used for communication and scheduling of independent processes. The
+following routine initializes the indices used to access <tt>Processes</tt>,
+<tt>ProcessorSchedulers</tt>,
+and <tt>Semaphores</tt>.
+<dl>
+<dd>
+<b>initializeSchedulerIndices</b></dd>
+
+<dl>
+<dd>
+<i><font color="#993366">"Class ProcessorScheduler"</font></i></dd>
+
+<dd>
+ProcessListsIndex := 0.</dd>
+
+<dd>
+ActiveProcessIndex := 1.</dd>
+
+<dd>
+<i><font color="#993366">"Class LinkedList"</font></i></dd>
+
+<dd>
+FirstLinkIndex := 0.</dd>
+
+<dd>
+LastLinkIndex := 1.</dd>
+
+<dd>
+<i><font color="#993366">"Class Semaphore"</font></i></dd>
+
+<dd>
+ExcessSignalsIndex := 2.</dd>
+
+<dd>
+<i><font color="#993366">"Class Link"</font></i></dd>
+
+<dd>
+NextLinkIndex := 0.</dd>
+
+<dd>
+<i><font color="#993366">"Class Process"</font></i></dd>
+
+<dd>
+SuspendedContextIndex := 1.</dd>
+
+<dd>
+PriorityIndex := 2.</dd>
+
+<dd>
+MyListIndex := 3</dd>
+</dl>
+</dl>
+Process switching must be synchronized with the execution of bytecodes.
+This is done using the following four interpreter registers and the four
+routines: <tt>checkProcessSwitch</tt>, <tt>asynchronousSignal:</tt>, <tt>synchronousSignal:</tt>,
+and <tt>transferTo:</tt>.
+<br>&nbsp;
+<table border="0" cellspacing="0" width="100%">
+<caption><b>Process-related Registers of the Interpreter</b></caption>
+
+<tbody><tr>
+<td align="LEFT" valign="TOP"><tt>newProcessWaiting</tt></td>
+
+<td>The <tt>newProcessWaiting</tt> register will be <tt>true</tt> if a
+process switch is called for and <tt>false</tt> otherwise.</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP" width="20%"><tt>newProcess</tt></td>
+
+<td>If <tt>newProcessWaiting</tt> is <tt>true</tt> then the <tt>newProcess</tt>
+register will point to the <tt>Process</tt> to be transferred to.&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"><tt>semaphoreList</tt></td>
+
+<td align="LEFT" valign="TOP">The <tt>semaphoreList</tt> register points to
+an <tt>Array</tt> used by the interpreter to buffer <tt>Semaphores</tt>
+that should be signaled. This is an <tt>Array</tt> in <tt>Interpreter</tt>,
+not in the object memory. It will be a table in a machine-language interpreter.&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP">
+<dl><tt>semaphoreIndex</tt></dl>
+</td>
+
+<td align="LEFT" valign="TOP">The <tt>semaphoreIndex</tt> register holds the
+index of the last <tt>Semaphore</tt> in the <tt>semaphoreList</tt> buffer.
+<br>&nbsp;</td>
+</tr>
+</tbody></table>
+The <tt>asynchronousSignal:</tt> routine adds a Semaphore to the buffer.
+<dl>
+<dd>
+<b>asynchronousSignal: aSemaphore</b></dd>
+
+<dl>
+<dd>
+semaphoreIndex := semaphoreIndex + 1.</dd>
+
+<dd>
+semaphoreList at: semaphoreIndex put: aSemaphore</dd>
+</dl>
+</dl>
+The <tt>Semaphores</tt> will actually be signaled in the <tt>checkProcessSwitch</tt>
+routine which calls the <tt>synchronousSignal:</tt> routine once for each
+<tt>Semaphore</tt>
+in the buffer. If a <tt>Process</tt> is waiting for the <tt>Semaphore</tt>,
+the <tt>synchronousSignal:</tt> routine resumes it. If no <tt>Process</tt>
+is waiting, the <tt>synchronousSignal:</tt> routine increments the <tt>Semaphore's</tt>
+count of excess signals. The
+<tt>isEmptyList:</tt>, <tt>resume:</tt>, and
+<tt>removeFirstLinkOfList:</tt>
+routines are described later in this section.
+<dl>
+<dd>
+<b>synchronousSignal: aSemaphore</b></dd>
+
+<dl>
+<dd>
+| excessSignals |</dd>
+
+<dd>
+(self isEmptyList: aSemaphore)</dd>
+
+<dl>
+<dd>
+ifTrue: [excessSignals := self fetchInteger: ExcessSignalsIndex</dd>
+
+<dl>
+<dl>
+<dl>
+<dl>
+<dd>
+&nbsp;&nbsp; ofObject: aSemaphore.</dd>
+</dl>
+</dl>
+</dl>
+
+<dd>
+self storeInteger ExcessSignalsIndex</dd>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ofObject: aSemaphore</dd>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; withValue: excessSignals + 1]</dd>
+</dl>
+
+<dd>
+ifFalse: [self resume: (self removeFirstLinkOfList: aSemaphore)]</dd>
+</dl>
+</dl>
+</dl>
+The <tt>transferTo:</tt> routine is used whenever the need to switch processes
+is detected. It sets the <tt>newProcessWaiting</tt> and <tt>newProcess</tt>
+registers.
+<dl>
+<dd>
+<b>transferTo: aProcess</b></dd>
+
+<dl>
+<dd>
+newProcessWaiting := true.</dd>
+
+<dd>
+newProcess := aProcess</dd>
+</dl>
+</dl>
+The <tt>checkProcessSwitch</tt> routine is called before each bytecode
+fetch (in the interpret routine) and performs the actual process switch
+if one has been called for. It stores the active context pointer in the
+old <tt>Process</tt>, stores the new <tt>Process</tt> in the <tt>ProcessorScheduler's</tt>
+active process field, and loads the new active context out of that <tt>Process</tt>.
+<dl>
+<dd>
+<b>checkProcessSwitch</b></dd>
+
+<dl>
+<dd>
+| activeProcess |</dd>
+
+<dd>
+[semaphoreIndex &gt; 0]</dd>
+
+<dl>
+<dd>
+whileTrue: [self synchronousSignal: (semaphoreList at: semaphoreIndex).</dd>
+
+<dl>
+<dd>
+semaphoreIndex := semaphoreIndex - 1].</dd>
+</dl>
+</dl>
+
+<dd>
+newProcessWaiting</dd>
+
+<dl>
+<dd>
+ifTrue: [newProcessWaiting := false.</dd>
+
+<dl>
+<dd>
+activeProcess := self activeProcess.</dd>
+
+<dd>
+memory storePointer: SuspendedContextIndex</dd>
+
+<dl>
+<dd>
+&nbsp;ofObject: activeProcess</dd>
+
+<dd>
+&nbsp;withValue: activeContext.</dd>
+</dl>
+
+<dd>
+memory storePointer: ActiveProcessIndex</dd>
+
+<dl>
+<dd>
+&nbsp;ofObject: self schedulerPointer</dd>
+
+<dd>
+&nbsp;withValue: newProcess.</dd>
+</dl>
+
+<dd>
+self newActiveContext: (memory fetchPointer: SuspendedContextIndex</dd>
+
+<dl>
+<dl>
+<dl>
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ofObject: newProcess)]</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+</dl>
+</dl>
+</dl>
+</dl>
+Any routines desiring to know what the active process will be must take
+into account the <tt>newProcessWaiting</tt> and <tt>newProcess</tt> registers.
+Therefore, they use the following routine.
+<dl>
+<dd>
+<b>activeProcess</b></dd>
+
+<dl>
+<dd>
+newProcessWaiting</dd>
+
+<dl>
+<dd>
+ifTrue: [^newProcess]</dd>
+
+<dd>
+ifFalse: [^memory fetchPointer: ActiveProcessIndex</dd>
+
+<dl>
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ofObject: self schedulerPointer]</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+</dl>
+The instance of <tt>ProcessorScheduler</tt> responsible for scheduling
+the actual processor needs to be known globally so that the primitives
+will know where to resume and suspend <tt>Processes</tt>. This <tt>ProcessorScheduler</tt>
+is bound to the name <tt>Processor</tt> in the Smalltalk global dictionary.
+The association corresponding to <tt>Processor</tt> has a guaranteed object
+pointer, so the appropriate <tt>ProcessorScheduler</tt> can be found.
+<dl>
+<dd>
+<b>schedulerPointer</b></dd>
+
+<dl>
+<dd>
+^memory fetchPointer: ValueIndex</dd>
+
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp; ofObject: SchedulerAssociationPointer</dd>
+</dl>
+</dl>
+</dl>
+When Smalltalk is started up, the initial active context is found through
+the scheduler's active <tt>Process</tt>.
+<dl>
+<dd>
+<b>firstContext</b></dd>
+
+<dl>
+<dd>
+newProcessWaiting := false.</dd>
+
+<dd>
+^memory fetchPointer: SuspendedContextIndex</dd>
+
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp; ofObject: self activeProcess</dd>
+</dl>
+</dl>
+</dl>
+If the object memory automatically deallocates objects on the basis of
+reference counting, special consideration must be given to reference counting
+in the process scheduling routines. During the execution of some of these
+routines, there will be times at which there are no references to some
+object from the object memory (e.g., after a <tt>Process</tt> has been
+removed from a <tt>Semaphore</tt> but before it has been placed on one
+of the <tt>ProcessorScheduler's</tt> <tt>LinkedLists</tt>). If the object
+memory uses garbage collection, it simply must avoid doing a collection
+in the middle of a primitive routine. The routines listed here ignore the
+reference-counting problem in the interest of clarity. Implementations
+using reference-counting will have to modify these routines in order to
+prevent premature deallocation of objects.
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; The following three routines
+are used to manipulate <tt>LinkedLists</tt>.
+<dl>
+<dd>
+<b>removeFirstLinkOfList: aLinkedList</b></dd>
+
+<dl>
+<dd>
+| firstLink lastLink nextLink |</dd>
+
+<dd>
+firstLink := memory fetchPointer: FirstLinkIndex</dd>
+
+<dd>
+ofObject: aLinkedList.</dd>
+
+<dd>
+lastLink := memory fetchPointer: LastLinkIndex</dd>
+
+<dd>
+ofObject: aLinkedList.</dd>
+
+<dd>
+lastLink = firstLink</dd>
+
+<dl>
+<dd>
+ifTrue: [memory storePointer: FirstLinkIndex</dd>
+
+<dl>
+<dl>
+<dd>
+&nbsp;&nbsp; ofObject: aLinkedList</dd>
+
+<dd>
+&nbsp;&nbsp; withValue: NilPointer.</dd>
+</dl>
+
+<dd>
+memory storePointer: LastLinkIndex</dd>
+
+<dl>
+<dd>
+&nbsp;ofObject: aLinkedList</dd>
+
+<dd>
+&nbsp;withValue: NilPointer]</dd>
+</dl>
+</dl>
+
+<dd>
+ifFalse: [nextLink := memory fetchPointer: NextLinkIndex</dd>
+
+<dl>
+<dl>
+<dl>
+<dl>
+<dd>
+&nbsp;ofObject: firstLink.</dd>
+</dl>
+</dl>
+</dl>
+
+<dd>
+memory storePointer: FirstLinkIndex</dd>
+
+<dl>
+<dd>
+&nbsp;ofObject: aLinkedList</dd>
+
+<dd>
+&nbsp;withValue: nextLink].</dd>
+</dl>
+</dl>
+</dl>
+
+<dd>
+memory storePointer: NextLinkIndex</dd>
+
+<dl>
+<dd>
+&nbsp;ofObject: firstLink</dd>
+
+<dd>
+&nbsp;withValue: NilPointer.</dd>
+</dl>
+
+<dd>
+^firstLink</dd>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>addLastLink: aLink toList: aLinkedList</b></dd>
+
+<dl>
+<dd>
+| lastLink |</dd>
+
+<dd>
+(self isEmptyList: aLinkedList)</dd>
+
+<dl>
+<dd>
+ifTrue: [memory storePointer: FirstLinkIndex</dd>
+
+<dl>
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp; ofObject: aLinkedList</dd>
+
+<dd>
+&nbsp;&nbsp;&nbsp; withValue: aLink]</dd>
+</dl>
+</dl>
+
+<dd>
+ifFalse: [lastLink := memory fetchPointer: LastLinkIndex</dd>
+
+<dl>
+<dl>
+<dl>
+<dl>
+<dd>
+ofObject: aLinkedList.</dd>
+</dl>
+</dl>
+</dl>
+
+<dd>
+memory storePointer: NextLinkIndex</dd>
+
+<dl>
+<dd>
+&nbsp;ofObject: lastLink</dd>
+
+<dd>
+&nbsp;withValue: aLink].</dd>
+</dl>
+</dl>
+</dl>
+
+<dd>
+memory storePointer: LastLinkIndex</dd>
+
+<dl>
+<dd>
+&nbsp;ofObject: aLinkedList</dd>
+
+<dd>
+&nbsp;withValue: aLink.</dd>
+</dl>
+
+<dd>
+memory storePointer: MyListIndex</dd>
+
+<dl>
+<dd>
+&nbsp;ofObject: aLink</dd>
+
+<dd>
+&nbsp;withValue: aLinkedList</dd>
+</dl>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>isEmptyList: aLinkedList</b></dd>
+
+<dl>
+<dd>
+^(memory fetchPointer: FirstLinkIndex</dd>
+
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp; ofObject: aLinkedList) = NilPointer</dd>
+</dl>
+</dl>
+</dl>
+These three <tt>LinkedList</tt> routines are used, in turn, to implement
+the following two routines that remove links from or add links to the <tt>ProcessorScheduler'sLinkedLists</tt>
+of quiescent <tt>Processes</tt>.
+<dl>
+<dd>
+<b>wakeHighestPriority</b></dd>
+
+<dl>
+<dd>
+| priority processLists processList |</dd>
+
+<dd>
+processLists := memory fetchPointer: ProcessListsIndex</dd>
+
+<dl>
+<dl>
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp; ofObject: self schedulerPointer.</dd>
+</dl>
+</dl>
+</dl>
+
+<dd>
+priority := memory fetchWordLengthOf: processLists.</dd>
+
+<dd>
+[processList := memory fetchPointer: priority - 1</dd>
+
+<dl>
+<dl>
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp; ofObject: processLists.</dd>
+</dl>
+</dl>
+</dl>
+
+<dd>
+self isEmptyList: processList] whileTrue: [priority := priority - 1].</dd>
+
+<dd>
+^self removeFirstLinkOfList: processList</dd>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>sleep: aProcess</b></dd>
+
+<dl>
+<dd>
+| priority processLists processList |</dd>
+
+<dd>
+priority := self fetchInteger: PriorityIndex</dd>
+
+<dl>
+<dl>
+<dd>
+&nbsp;&nbsp; ofObject: aProcess.</dd>
+</dl>
+</dl>
+
+<dd>
+processLists := memory fetchPointer: ProcessListsIndex</dd>
+
+<dl>
+<dl>
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp; ofObject: self schedulerPointer.</dd>
+</dl>
+</dl>
+</dl>
+
+<dd>
+processList := memory fetchPointer: priority - 1</dd>
+
+<dl>
+<dl>
+<dl>
+<dd>
+&nbsp;&nbsp; ofObject: processLists.</dd>
+</dl>
+</dl>
+</dl>
+
+<dd>
+self addLastLink: aProcess</dd>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; toList: processList</dd>
+</dl>
+</dl>
+These two routines are used, in turn, to implement the following two routines
+that actually suspend and resume <tt>Processes</tt>.
+<dl>
+<dd>
+<b>suspendActive</b></dd>
+
+<dl>
+<dd>
+self transferTo: self wakeHighestPriority</dd>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>resume: aProcess</b></dd>
+
+<dl>
+<dd>
+| activeProcess activePriority newPriority |</dd>
+
+<dd>
+activeProcess := self activeProcess.</dd>
+
+<dd>
+activePriority := self fetchInteger: PriorityIndex</dd>
+
+<dl>
+<dl>
+<dl>
+<dd>
+&nbsp;ofObject: activeProcess.</dd>
+</dl>
+</dl>
+</dl>
+
+<dd>
+newPriority := self fetchInteger: PriorityIndex</dd>
+
+<dl>
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ofObject: aProcess.</dd>
+</dl>
+</dl>
+
+<dd>
+newPriority &gt; activePriority</dd>
+
+<dl>
+<dd>
+ifTrue: [self sleep: activeProcess.</dd>
+
+<dl>
+<dd>
+self transferTo: aProcess]</dd>
+</dl>
+
+<dd>
+ifFalse: [self sleep: aProcess]</dd>
+</dl>
+</dl>
+</dl>
+The <tt>primitiveSignal</tt> routine is associated with the signal message
+in <tt>Semaphore</tt>. Since it is called in the process of interpreting
+a bytecode, it can use the <tt>synchronousSignal:</tt> routine. Any other
+signaling of <tt>Semaphores</tt> by the interpreter (for example, for timeouts
+and keystrokes) must use the <tt>asynchronousSignal:</tt> routine.
+<dl>
+<dd>
+<b>primitiveSignal</b></dd>
+
+<dl>
+<dd>
+self synchronousSignal: self stackTop</dd>
+</dl>
+</dl>
+The <tt>primitiveWait</tt> routine is associated with the wait message
+in <tt>Semaphore</tt>. If the receiver has an excess signal count greater
+than 0, <tt>primitiveWait</tt> routine decrements the count. If the excess
+signal count is 0, the <tt>primitiveWait</tt> suspends the active <tt>Process</tt>
+and adds it to the receiver's list of <tt>Processes</tt>.
+<dl>
+<dd>
+<b>primitiveWait</b></dd>
+
+<dl>
+<dd>
+| thisReceiver excessSignals |</dd>
+
+<dd>
+thisReceiver := self stackTop.</dd>
+
+<dd>
+excessSignals := self fetchInteger: ExcessSignalsIndex ofObject: thisReceiver.</dd>
+
+<dd>
+excessSignals &gt; 0</dd>
+
+<dl>
+<dd>
+ifTrue: [self storeInteger: ExcessSignalsIndex</dd>
+
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ofObject: thisReceiver</dd>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; withValue: excessSignals
+- 1]</dd>
+</dl>
+
+<dd>
+ifFalse: [self addLastLink: self activeProcess</dd>
+
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; toList: thisReceiver.</dd>
+
+<dd>
+self suspendActive]</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+The <tt>primitiveResume</tt> routine is associated with the resume message
+in <tt>Process</tt>. It simply calls the <tt>resume:</tt> routine with
+the receiver as argument.
+<dl>
+<dd>
+<b>primitiveResume</b></dd>
+
+<dl>
+<dd>
+self resume: self stackTop</dd>
+</dl>
+</dl>
+The <tt>primitiveSuspend</tt> routine is associated with the suspend message
+in <tt>Process</tt>. The <tt>primitiveSuspend</tt> routine suspends the
+receiver if it is the active <tt>Process</tt>. If the receiver is not the
+active <tt>Process</tt>, the primitive fails.
+<dl>
+<dd>
+<b>primitiveSuspend</b></dd>
+
+<dl>
+<dd>
+self success: self stackTop = self activeProcess.</dd>
+
+<dd>
+self success</dd>
+
+<dl>
+<dd>
+ifTrue: [self popStack.</dd>
+
+<dl>
+<dd>
+self push: NilPointer.</dd>
+
+<dd>
+self suspendActive]</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+The <tt>primitiveFlushCache</tt> routine removes the contents of the method
+cache. Implementations that do not use a method cache can treat this as
+a no-op.
+<dl>
+<dd>
+<b>primitiveFlushCache</b></dd>
+
+<dl>
+<dd>
+self initializeMethodCache</dd>
+</dl>
+</dl>
+
+<center>
+<hr size="1" width="80%"><a name="InputOutputPrimitives29"></a><b><font color="#3333FF"><font size="+2">Input/Output
+Primitives</font></font></b>
+<hr size="1" width="80%"></center>
+The input/output primitive routines provide Smalltalk with access to the
+state of the hardware devices. Since the implementation of these routines
+will be dependent on the structure of the implementing machine, no routines
+will be given, just a specification of the behavior of the primitives.
+<dl>
+<dd>
+<b>dispatchInputOutputPrimitives</b></dd>
+
+<dl>
+<dd>
+primitiveIndex = 90 ifTrue: [^self primitiveMousePoint].</dd>
+
+<dd>
+primitiveIndex = 91 ifTrue: [^self primitiveCursorLocPut].</dd>
+
+<dd>
+primitiveIndex = 92 ifTrue: [^self primitiveCursorLink].</dd>
+
+<dd>
+primitiveIndex = 93 ifTrue: [^self primitiveInputSemaphore].</dd>
+
+<dd>
+primitiveIndex = 94 ifTrue: [^self primitiveSamplelnterval].</dd>
+
+<dd>
+primitiveIndex = 95 ifTrue: [^self primitiveInputWord].</dd>
+
+<dd>
+primitiveIndex = 96 ifTrue: [^self primitiveCopyBits].</dd>
+
+<dd>
+primitiveIndex = 97 ifTrue: [^self primitiveSnapshot].</dd>
+
+<dd>
+primitiveIndex = 98 ifTrue: [^self primitiveTimeWordsInto].</dd>
+
+<dd>
+primitiveIndex = 99 ifTrue: [^self primitiveTickWordsInto].</dd>
+
+<dd>
+primitiveIndex = 100 ifTrue: [^self primitiveSignalAtTick].</dd>
+
+<dd>
+primitiveIndex = 101 ifTrue: [^self primitiveBeCursor].</dd>
+
+<dd>
+primitiveIndex = 102 ifTrue: [^self primitiveBeDisplay].</dd>
+
+<dd>
+primitiveIndex = 103 ifTrue: [^self primitiveScanCharacters].</dd>
+
+<dd>
+primitiveIndex = 104 ifTrue: [^self primitiveDrawLoop].</dd>
+
+<dd>
+primitiveIndex = 105 ifTrue: [^self primitiveStringReplace]</dd>
+</dl>
+</dl>
+Four of the primitive routines are used to detect actions by the user.
+The two types of user action the system can detect are changing the state
+of a bi-state device and moving the pointing device. The bi-state devices
+are the keys on the keyboard, three buttons associated with the pointing
+device and an optional five-paddle keyset. The buttons associated with
+the pointing device may or may not actually be on the physical pointing
+device. Three of the four input primitive routines (<tt>primitiveInputSemaphore</tt>,
+<tt>primitiveInputWord</tt>,
+and <tt>primitiveSampleInterval</tt>) provide an <i>active</i> or <i>event-initiated</i>
+mechanism to detect either state change or movement. The other primitive
+routine (<tt>primitiveMousePoint</tt>) provides a <i>passive</i> or <i>polling</i>
+mechanism to detect pointing device location.
+<br>&nbsp;&nbsp;&nbsp; The event-initiated mechanism provides a buffered
+stream of 16-bit words that encode changes to the bi-state devices or the
+pointing device location. Each time a word is placed in the buffer, a <tt>Semaphore</tt>
+is signaled (using the <tt>asynchronousSignal:</tt> routine). The <tt>Semaphore</tt>
+to signal is initialized by the <tt>primitiveInputSemaphore</tt> routine.
+This routine is associated with the <tt>primInputSemaphore:</tt> message
+in <tt>InputState</tt> and the argument of the message becomes the <tt>Semaphore</tt>
+to be signaled. The <tt>primitiveInputWord</tt> routine (associated with
+the <tt>primInputWord</tt> message in <tt>InputState</tt>) returns the
+next word in the buffer, removing it from the buffer. Since the <tt>Semaphore</tt>
+is signaled once for every word in the buffer, the Smalltalk process emptying
+the buffer should send the <tt>Semaphore</tt> a wait message before sending
+each <tt>primInputWord</tt> message. There are six types of 16-bit word
+placed in the buffer. Two types specify the time of an event, two types
+specify state change of a bi-state device, and two types specify pointing
+device movement. The type of the word is stored in its high order four
+bits. The low order 12-bits are referred to as the <i>parameter</i>.
+<br>&nbsp;&nbsp;&nbsp; The six type codes have the following meanings.
+<br>&nbsp;
+<center><table border="0" cellspacing="0" width="60%">
+<tbody><tr>
+<td>
+<center><b>type code</b></center>
+</td>
+
+<td>
+<center><b>meaning</b></center>
+</td>
+</tr>
+
+<tr>
+<td align="CENTER" valign="TOP" width="10%">0</td>
+
+<td>Delta time (the parameter is the number of milliseconds since the last
+event of any type)&nbsp;</td>
+</tr>
+
+<tr>
+<td align="CENTER" valign="TOP">1</td>
+
+<td>X location of the pointing device</td>
+</tr>
+
+<tr>
+<td align="CENTER" valign="TOP">2</td>
+
+<td>Y location of the pointing device</td>
+</tr>
+
+<tr>
+<td align="CENTER" valign="TOP">3</td>
+
+<td>Bi-state device turned on (the parameter indicates which device)</td>
+</tr>
+
+<tr>
+<td align="CENTER" valign="TOP">4</td>
+
+<td>Bi-state device turned off (the parameter indicates which device)</td>
+</tr>
+
+<tr>
+<td align="CENTER" valign="TOP">5</td>
+
+<td align="LEFT" valign="TOP">Absolute time (the parameter is ignored, the
+next two words in the buffer contain a 32-bit unsigned number that is the
+absolute value of the millisecond clock)
+<br>&nbsp;</td>
+</tr>
+</tbody></table></center>
+Whenever a device state changes or the pointing device moves, a time word
+is put into the buffer. A type 0 word will be used if the number of milliseconds
+since the last event can be represented in 12 bits. Otherwise, a type 5
+event is used followed by two words representing the absolute time. Note
+that the Semaphore will be signaled 3 times in the latter case. Following
+the time word(s) will be one or more words of type 1 through 4. Type 1
+and 2 words will be generated whenever the pointing device moves at all.
+It should be remembered that Smalltalk uses a left-hand coordinate system
+to talk about the screen. The origin is the upper left corner of the screen,
+the x dimension increases toward the right, and the y dimension increases
+toward the bottom. The minimum time span between these events can be set
+by the <tt>primitiveSampleInterval</tt> routine which is associated with
+the <tt>primSamplelnterval:</tt> message in <tt>InputState</tt>. The argument
+to <tt>primSamplelnterval:</tt> specifies the number of milliseconds between
+movement events if the pointing device is moving constantly.
+<br>&nbsp;&nbsp;&nbsp; Type 3 and 4 words use the low-order eight bits
+of the parameter to specify which device changed state. The numbering scheme
+is set up to work with both decoded and undecoded keyboards. An undecoded
+keyboard is made up of independent keys with independent down and up transitions.
+A decoded keyboard consists of some independent keys and some "meta" keys
+(shift and escape) that cannot be detected on their own, but that change
+the value of the other keys. The keys on a decoded keyboard only indicate
+their down transition, not their up transition. On an undecoded keyboard,
+the standard keys produce parameters that are the ASCII code of the character
+on the keytop <i>without</i> shift or control information (i.e., the key
+with "A" on it produces the ASCII for "a" and the key with "2" and "@"
+on it produces the ASCII for "2"). The other standard keys produce the
+following parameters.
+<br>&nbsp;
+<center><table border="0" cellspacing="0" width="60%">
+<tbody><tr>
+<td align="LEFT" valign="TOP" width="20%"><b>key</b></td>
+
+<td><b>parameter</b></td>
+</tr>
+
+<tr>
+<td>backspace</td>
+
+<td>8</td>
+</tr>
+
+<tr>
+<td>tab</td>
+
+<td>9</td>
+</tr>
+
+<tr>
+<td>line feed</td>
+
+<td>10</td>
+</tr>
+
+<tr>
+<td>return</td>
+
+<td>13</td>
+</tr>
+
+<tr>
+<td>escape</td>
+
+<td>27</td>
+</tr>
+
+<tr>
+<td>space</td>
+
+<td>32</td>
+</tr>
+
+<tr>
+<td>
+<dl>delete</dl>
+</td>
+
+<td align="LEFT" valign="TOP">127
+<br>&nbsp;</td>
+</tr>
+</tbody></table></center>
+For an undecoded keyboard, the meta keys have the following parameters.
+<br>&nbsp;
+<center><table border="0" cellspacing="0" width="60%">
+<tbody><tr>
+<td align="LEFT" valign="TOP" width="20%"><b>key</b></td>
+
+<td><b>parameter</b></td>
+</tr>
+
+<tr>
+<td>left shift</td>
+
+<td>136</td>
+</tr>
+
+<tr>
+<td>right shift</td>
+
+<td>137</td>
+</tr>
+
+<tr>
+<td>control</td>
+
+<td>138</td>
+</tr>
+
+<tr>
+<td>
+<dl>alpha-lock</dl>
+</td>
+
+<td align="LEFT" valign="TOP">139
+<br>&nbsp;</td>
+</tr>
+</tbody></table></center>
+For a decoded keyboard, the full shifted and "controlled" ASCII should
+be used as a parameter and successive type 3 and 4 words should be produced
+for each keystroke.
+<br>&nbsp;&nbsp;&nbsp; The remaining bi-state devices have the following
+parameters.
+<br>&nbsp;
+<center><table border="0" cellspacing="0" width="60%">
+<tbody><tr>
+<td width="40%"><b>key</b></td>
+
+<td><b>parameter</b></td>
+</tr>
+
+<tr>
+<td width="50%">left or top "pointing device" button</td>
+
+<td>130</td>
+</tr>
+
+<tr>
+<td>center "pointing device" button</td>
+
+<td>129</td>
+</tr>
+
+<tr>
+<td>right or bottom "pointing device" button</td>
+
+<td>128</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP">
+<dl>keyset paddles right to left</dl>
+</td>
+
+<td align="LEFT" valign="TOP">131 through 135
+<br>&nbsp;</td>
+</tr>
+</tbody></table></center>
+The <tt>primitiveMousePoint</tt> routine allows the location of the pointing
+device to be polled. It allocates a new <tt>Point</tt> and stores the location
+of the pointing device in its <tt>x</tt> and <tt>y</tt> fields.
+<br>&nbsp;&nbsp;&nbsp; The display screen is a rectangular set of pixels
+that can each be one of two colors. The colors of the pixels are determined
+by the individual bits in a specially designated instance of <tt>DisplayScreen</tt>.
+<tt>DisplayScreen</tt>
+is a subclass of <tt>Form</tt>. The instance of
+<tt>DisplayScreen</tt>
+that should be used to update the screen is designated by sending it the
+message <tt>beDisplay</tt>. This message invokes the
+<tt>primitiveBeDisplay</tt>
+primitive routine. The screen will be updated from the last recipient of
+<tt>beDisplay</tt>
+approximately 60 times a second.
+<br>&nbsp;&nbsp;&nbsp; Every time the screen is updated, a <i>cursor</i>
+is ORed into its pixels. The cursor image is determined by a specially
+designated instance of <tt>Cursor</tt>. <tt>Cursor</tt> is a subclass of
+<tt>Form</tt>
+whose instances always have both width and height of 16. The instance of
+<tt>Cursor</tt>
+that should be ORed into the screen is designated by sending it the message
+<tt>beCursor</tt>.
+This message invokes the <tt>primitiveBeCursor</tt> primitive routine.
+<br>&nbsp;&nbsp;&nbsp; The location at which the cursor image should appear
+is called the <i>cursor location</i>. The cursor location may be linked
+to the location of the pointing device or the two locations may be independent.
+Whether or not the two locations are linked is determined by sending a
+message to class <tt>Cursor</tt> with the selector <tt>cursorLink:</tt>
+and either <tt>true</tt> or <tt>false</tt> as the argument. If the argument
+is <tt>true</tt>, then the two locations will be the same; if it is <tt>false</tt>,
+they are independent. The <tt>cursorLink:</tt> message in <tt>Cursor's</tt>
+metaclass invokes the <tt>primitiveCursorLink</tt> primitive routine. The
+cursor can be moved in two ways. If the cursor and pointing device have
+been linked, then moving the pointing device moves the cursor. The cursor
+can also be moved by sending the message <tt>primCursorLocPut:</tt> to
+an instance of <tt>InputState</tt>. This message takes a <tt>Point</tt>
+as an argument and invokes the <tt>primitiveCursorLocPut</tt> primitive
+routine. This routine moves the cursor to the location specified by the
+argument. If the cursor and pointing device are linked, the <tt>primitiveCursorLocPut</tt>
+routine also changes the location indicated by the pointing device.
+<br>&nbsp;&nbsp;&nbsp; The <tt>primitiveCopyBits</tt> routine is associated
+with the <tt>copyBits</tt> message in <tt>BitBlt</tt> and performs an operation
+on a bitmap specified by the receiver. This routine is described in Chapter
+18.
+<br>&nbsp;&nbsp;&nbsp; The <tt>primitiveSnapshot</tt> routine writes the
+current state of the object memory on a file of the same format as the
+Smalltalk-80 release file. This file can be resumed in exactly the same
+way that the release file was originally started. Note that the pointer
+of the active context at the time of the primitive call must be stored
+in the active <tt>Process</tt> on the file.
+<br>&nbsp;&nbsp;&nbsp; The <tt>primitiveTimeWordsInto</tt> and <tt>primitiveTickWordsInto</tt>
+routines are associated with the <tt>timeWordsInto:</tt> and <tt>tickWordsInto:</tt>
+messages in <tt>Sensor</tt>. Both of these messages take a byte indexable
+object of at least four bytes as an argument. The <tt>primitiveTimeWordsInto</tt>
+routine stores the number of seconds since the midnight previous to January
+1, 1901 as an unsigned 32-bit integer into the first four bytes of the
+argument. The <tt>primitiveTickWordsInto</tt> routine stores the number
+of ticks of the millisecond clock (since it last was reset or rolled over)
+as an unsigned 32-bit integer into the first four bytes of the argument.
+<br>&nbsp;&nbsp;&nbsp; The <tt>primitiveSignalAtTick</tt> routine is associated
+with the <tt>signal:atTick:</tt> messages in <tt>ProcessorScheduler</tt>.
+This message takes a <tt>Semaphore</tt> as the first argument and a byte
+indexable object of at least four bytes as the second argument. The first
+four bytes of the second argument are interpreted as an unsigned 32-bit
+integer of the type stored by the <tt>primitiveTickWordsInto</tt> routine.
+The interpreter should signal the <tt>Semaphore</tt> argument when the
+millisecond clock reaches the value specified by the second argument. If
+the specified time has passed, the <tt>Semaphore</tt> is signaled immediately.
+This primitive signals the last <tt>Semaphore</tt> to be passed to it.
+If a new call is made on it before the last timer value has been reached,
+the last <tt>Semaphore</tt> will not be signaled. If the first argument
+is not a <tt>Semaphore</tt>, any currently waiting <tt>Semaphore</tt> will
+be forgotten.
+<br>&nbsp;&nbsp;&nbsp; The <tt>primitiveScanCharacters</tt> routine is
+an optional primitive associated with the <tt>scanCharactersFrom:to:in:rightX:stopConditions:displaying:</tt>
+message in <tt>CharacterScanner</tt>. If the function of the Smalltalk
+method is duplicated in the primitive routine, text display will go faster.
+The <tt>primitiveDrawLoop</tt> routine is similarly an optional primitive
+associated with the <tt>drawLoopX:Y:</tt> message in <tt>BitBlt</tt>. If
+the function of the Smalltalk method is duplicated in the primitive routine,
+drawing lines will go faster.
+<center>
+<hr size="1" width="80%"><a name="SystemPrimitives29"></a><b><font color="#3333FF"><font size="+2">System
+Primitives</font></font></b>
+<hr size="1" width="80%"></center>
+The seven final primitives are grouped together as system primitives.
+<dl>
+<dd>
+<b>dispatchSystemPrimitives</b></dd>
+
+<dl>
+<dd>
+primitiveIndex = 110 ifTrue: [^self primitiveEquivalent].</dd>
+
+<dd>
+primitiveIndex = 111 ifTrue: [^self primitiveClass].</dd>
+
+<dd>
+primitiveIndex = 112 ifTrue: [^self primitiveCoreLeft].</dd>
+
+<dd>
+primitiveIndex = 113 ifTrue: [^self primitiveQuit].</dd>
+
+<dd>
+primitiveIndex = 114 ifTrue: [^self primitiveExitToDebugger].</dd>
+
+<dd>
+primitiveIndex = 115 ifTrue: [^self primitiveOopsLeft].</dd>
+
+<dd>
+primitiveIndex = 116 ifTrue: [^self primitiveSignalAtOopsLeftWordsLeft]</dd>
+</dl>
+</dl>
+The <tt>primitiveEquivalent</tt> routine is associated with the <tt>=</tt>
+message in <tt>Object</tt>. It returns <tt>true</tt> if the receiver and
+argument are the same object (have the same object pointer) and <tt>false</tt>
+otherwise.
+<dl>
+<dd>
+<b>primitiveEquivalent</b></dd>
+
+<dl>
+<dd>
+| thisObject otherObject |</dd>
+
+<dd>
+otherObject := self popStack.</dd>
+
+<dd>
+thisObject := self popStack.</dd>
+
+<dd>
+thisObject = otherObject</dd>
+
+<dl>
+<dd>
+ifTrue: [self push: TruePointer]</dd>
+
+<dd>
+ifFalse: [self push: FalsePointer]</dd>
+</dl>
+</dl>
+</dl>
+The <tt>primitiveClass</tt> routine is associated with the class message
+in <tt>Object</tt>. It returns the object pointer of the receiver's class.
+<dl>
+<dd>
+<b>primitiveClass</b></dd>
+
+<dl>
+<dd>
+| instance |</dd>
+
+<dd>
+instance := self popStack.</dd>
+
+<dd>
+self push: (memory fetchClassOf: instance)</dd>
+</dl>
+</dl>
+The <tt>primitiveCoreLeft</tt> routine returns the number of unallocated
+words in the object space. The <tt>primitiveQuit</tt> routine exits to
+another operating system for the host machine, if one exists. The <tt>primitiveExitToDebugger</tt>
+routine calls the machine language debugger, if one exists.
+<br>
+<hr size="1" width="100%">
+<center><font color="#3333FF">[<a href="../bluebook_imp_toc.html">TOC</a>]
+[<a href="../bluebook/bluebook_chapter26.html">26</a>] [<a href="../bluebook/bluebook_chapter27.html">27</a>]
+[<a href="../bluebook/bluebook_chapter28.html">28</a>] [<a href="../bluebook/bluebook_chapter29.html#top_of_29">29</a>]
+[<a href="../bluebook/bluebook_chapter30.html">30</a>]</font></center>
+
+
+</body></html>

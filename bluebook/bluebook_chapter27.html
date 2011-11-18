@@ -1,0 +1,2392 @@
+<!DOCTYPE html PUBLIC "-//w3c//dtd html 4.0 transitional//en">
+<html><head>
+<!-- base href="http://users.ipa.net.wstub.archive.org/~dwighth/smalltalk/bluebook/bluebook_chapter27.html" -->
+
+   <meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+   <meta name="GENERATOR" content="Mozilla/4.5 [en] (WinNT; I) [Netscape]">
+   <meta name="Author" content="Dwight Hughes">
+   <title>Blue Book Chapter 27</title>
+</head>
+<body alink="#FF0000" bgcolor="#FFF7E1" link="#0000EE" text="#000000" vlink="#551A8B">
+
+<center><a name="top_of_27"></a><font color="#3333FF">[<a href="../bluebook_imp_toc.html">TOC</a>]
+[<a href="../bluebook/bluebook_chapter26.html">26</a>] </font><font color="#000000">27</font><font color="#3333FF">
+[<a href="../bluebook/bluebook_chapter28.html">28</a>] [<a href="../bluebook/bluebook_chapter29.html">29</a>]
+[<a href="../bluebook/bluebook_chapter30.html">30</a>]</font>
+<br>
+<hr size="1" width="100%"><font color="#000099"><font size="+4">27</font></font>
+<br><font color="#3333FF"><font size="+3">Specification of the Virtual Machine</font></font>
+<hr align="LEFT" size="1" width="100%"></center>
+
+<dl>
+<dl>
+<dl>
+<dd>
+<b><font color="#3333FF"><font size="+1"><a href="../bluebook/bluebook_chapter27.html#FormOfTheSpecification27">Form
+of the Specification</a></font></font></b></dd>
+
+<dd>
+<b><font color="#3333FF"><font size="+1"><a href="../bluebook/bluebook_chapter27.html#ObjectMemoryInterface27">Object
+Memory Interface</a></font></font></b></dd>
+
+<dd>
+<b><font color="#3333FF"><font size="+1"><a href="../bluebook/bluebook_chapter27.html#ObjectsUsedByTheInterpreter27">Objects
+Used by the Interpreter</a></font></font></b></dd>
+
+<dl>
+<dd>
+<i><font color="#000099"><a href="../bluebook/bluebook_chapter27.html#CompiledMethods27">Compiled Methods</a></font></i></dd>
+
+<dd>
+<i><font color="#000099"><a href="../bluebook/bluebook_chapter27.html#Contexts27">Contexts</a></font></i></dd>
+
+<dd>
+<i><font color="#000099"><a href="../bluebook/bluebook_chapter27.html#Classes27">Classes</a></font></i></dd>
+</dl>
+</dl>
+</dl>
+</dl>
+
+<hr size="1" width="100%"><a href="../bluebook/bluebook_chapter26.html">Chapter 26</a>
+described the function of the Smalltalk virtual machine, which consists
+of an interpreter and an object memory. This chapter and the next three
+present a more formal specification of these two parts of the virtual machine.
+Most implementations of the virtual machine will be written in machine
+language or microcode. However, for specification purposes, these chapters
+will present an implementation of the virtual machine in Smalltalk itself.
+While this is a somewhat circular proposition, every attempt has been made
+to ensure that no details are hidden as a result.
+<br>&nbsp;&nbsp;&nbsp; This chapter consists of three sections. The first
+describes the conventions and terminology used in the formal specification.
+It also provides some warnings of possible confusion resulting from the
+form of this specification. The second section describes the object memory
+routines used by the interpreter. The implementation of these routines
+will be described in <a href="../bluebook/bluebook_chapter30.html">Chapter 30</a>.
+The third section describes the three main types of object that the interpreter
+manipulates, methods, contexts, and classes. <a href="../bluebook/bluebook_chapter28.html">Chapter
+28</a> describes the bytecode set and how it is interpreted; <a href="../bluebook/bluebook_chapter29.html">Chapter
+29</a> describes the primitive routines.
+<center>
+<hr size="1" width="80%"><a name="FormOfTheSpecification27"></a><b><font color="#3333FF"><font size="+2">Form
+of the Specification</font></font></b>
+<hr size="1" width="80%"></center>
+Two class descriptions named <tt>Interpreter</tt> and <tt>ObjectMemory</tt>
+make up the formal specification of the Smalltalk-80 virtual machine. The
+implementation of <tt>Interpreter </tt>will be presented in detail in this
+chapter and the following two; the implementation of <tt>ObjectMemory</tt>
+in <a href="../bluebook/bluebook_chapter30.html">Chapter 30</a>.
+<br>&nbsp;&nbsp;&nbsp; A potential source of confusion in these chapters
+comes from the two Smalltalk systems involved in the descriptions, the
+system containing <tt>Interpreter</tt> and <tt>ObjectMemory</tt> and the
+system being interpreted. <tt>Interpreter</tt> and <tt>ObjectMemory</tt>
+have methods and instance variables and they also manipulate methods and
+instance variables in the system they interpret. To minimize the confusion,
+we will use a different set of terminology for each system. The methods
+of <tt>Interpreter</tt> and <tt>ObjectMemory</tt> will be called <i>routines</i>;
+the word <i>method</i> will be reserved for the methods being interpreted.
+Similarly, the instance variables of <tt>Interpreter</tt> and <tt>ObjectMemory</tt>
+will be called <i>registers</i>; the word <i>instance variable</i> will
+be reserved for the instance variables of objects in the system being interpreted.
+<br>&nbsp;&nbsp;&nbsp; The arguments of the routines and the contents of
+the registers of <tt>Interpreter</tt> and <tt>ObjectMemory</tt> will almost
+always be instances of <tt>Integer</tt> (<tt>SmallIntegers</tt> and <tt>LargePositiveIntegers</tt>).
+This can also be a source of confusion since there are <tt>Integers</tt>
+in the interpreted system. The <tt>Integers</tt> that are arguments to
+routines and contents of registers represent object pointers and numerical
+values of the interpreted system. Some of these will represent the object
+pointers or values of <tt>Integers</tt> in the interpreted system.
+<br>&nbsp;&nbsp;&nbsp; The interpreter routines in this specification will
+all be in the form of Smalltalk method definitions. For example
+<dl>
+<dd>
+<b>routineName: argumentName</b></dd>
+
+<dl>
+<dd>
+| temporaryVariable |</dd>
+
+<dd>
+temporaryVariable := self anotherRoutine: argumentName.</dd>
+
+<dd>
+^temporaryVariable - 1</dd>
+</dl>
+</dl>
+&nbsp;&nbsp;&nbsp; The routines in the specification will contain five
+types of expression.
+<br>&nbsp;
+<center><table border="0" cellspacing="0" width="100%">
+<tbody><tr>
+<td align="RIGHT" valign="TOP" width="40">1.&nbsp;</td>
+
+<td><i>Calls on other routines of the interpreter.</i> Since both the invocation
+and definition of the routine are in <tt>Interpreter</tt>, they will appear
+as messages to <tt>self</tt>.</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td>
+<ul>
+<li>
+self <b>headerOf:</b> newMethod&nbsp;</li>
+
+<li>
+self <b>storeInstructionPointerValue:</b> value <b>inContext:</b> contextPointer</li>
+</ul>
+</td>
+</tr>
+
+<tr>
+<td align="RIGHT" valign="TOP" width="40">2.&nbsp;</td>
+
+<td><i>Calls on routines of the object memory.</i> An <tt>Interpreter</tt>
+uses the name <tt>memory</tt> to refer to its object memory, so these calls
+will appear as messages to <tt>memory</tt>.&nbsp;</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td>
+<ul>
+<li>
+memory <b>fetchClassOf:</b> newMethod&nbsp;</li>
+
+<li>
+memory <b>storePointer:</b> senderindex <b>ofObject:</b> contextPointer
+<b>withValue:</b>
+activeContext&nbsp;</li>
+</ul>
+</td>
+</tr>
+
+<tr>
+<td align="RIGHT" valign="TOP" width="40">3.&nbsp;</td>
+
+<td><i>Arithmetic operations on object pointers and numerical values.</i>
+Arithmetic operations will be represented by standard Smalltalk arithmetic
+expressions, so they will appear as messages to the numbers themselves.&nbsp;</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td>
+<ul>
+<li>
+receiverValue <b>+</b> argumentValue&nbsp;</li>
+
+<li>
+selectorPointer <b>bitShift:</b> -1&nbsp;</li>
+</ul>
+</td>
+</tr>
+
+<tr>
+<td align="RIGHT" valign="TOP" width="40">4.&nbsp;</td>
+
+<td><i>Array accesses.</i> Certain tables maintained by the interpreter
+are represented in the formal specification by <tt>Arrays</tt>. Access
+to these will appear as <tt>at:</tt> and <tt>at:put:</tt> messages to the
+<tt>Arrays</tt>.&nbsp;</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td>
+<ul>
+<li>
+methodCache <b>at:</b> hash&nbsp;</li>
+
+<li>
+semaphoreList <b>at:</b> semaphoreIndex <b>put:</b> semaphorePointer&nbsp;</li>
+</ul>
+</td>
+</tr>
+
+<tr>
+<td align="RIGHT" valign="TOP" width="40">5.&nbsp;</td>
+
+<td><i>Conditional control structures.</i> The control structures of the
+virtual machine will be represented by standard Smalltalk conditional control
+structures. Conditional selections will appear as messages to Booleans.
+Conditional repetitions will appear as messages to blocks.&nbsp;</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td>
+<ul>
+<li>
+index &lt; length <b>ifTrue:</b> [ ... ]&nbsp;</li>
+
+<li>
+sizeFlag = 1 <b>ifTrue:</b> [ ... ] <b>ifFalse:</b> [ ... ]</li>
+
+<li>
+[currentClass ~= NilPointer] <b>whileTrue:</b> [ ... ]</li>
+</ul>
+</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td>&nbsp;</td>
+</tr>
+</tbody></table></center>
+&nbsp;&nbsp;&nbsp; The definition of <tt>Interpreter</tt> describes the
+function of the Smallta1k-80 bytecode interpreter; however, the form of
+a machine language implementation of the interpreter may be very different,
+particularly in the control structures it uses. The dispatch to the appropriate
+routine to execute a bytecode is an example of something a machine language
+interpreter might do differently. To find the right routine to execute,
+a machine language interpreter would probably do some kind of address arithmetic
+to calculate where to jump; whereas, as we will see, <tt>Interpreter</tt>
+does a series of conditionals and routine calls. In a machine language
+implementation, the routines that execute each bytecode would simply jump
+back to the beginning of the bytecode fetch routine when they were finished,
+instead of returning through the routine call structure.
+<br>&nbsp;&nbsp;&nbsp; Another difference between <tt>Interpreter</tt>
+and a machine language implementation is the degree of optimization of
+the code. For the sake of clarity, the routines specified in this chapter
+have not been optimized. For example, to perform a task, <tt>Interpreter</tt>
+may fetch a pointer from the object memory several times in different routines,
+when a more optimized interpreter might save the value in a register for
+later use. Many of the routines in the formal specification will not be
+subroutines in a machine language implementation, but will be written in-line
+instead.
+<center>
+<hr size="1" width="80%"><a name="ObjectMemoryInterface27"></a><b><font color="#3333FF"><font size="+2">Object
+Memory Interface</font></font></b>
+<hr size="1" width="80%"></center>
+<a href="../bluebook/bluebook_chapter26.html">Chapter 26</a> gave an informal description
+of the object memory. Since the routines of <tt>Interpreter</tt> need to
+interact with the object memory, we need its formal functional specification.
+This will be presented as the protocol specification of class <tt>ObjectMemory</tt>.
+<a href="../bluebook/bluebook_chapter30.html">Chapter
+30</a> will describe one way to implement this protocol specification.
+<br>&nbsp;&nbsp;&nbsp; The object memory associates a 16-bit object pointer
+with
+<ol>
+<li>
+the object pointer of a class-describing object and</li>
+
+<li>
+a set of 8- or 16-bit fields that contain object pointers or numerical
+values.</li>
+</ol>
+The interface to the object memory uses zero-relative integer indices to
+indicate an object's fields. Instances of <tt>Integer</tt> are used for
+both object pointers and field indices in the interface between the interpreter
+and object memory.
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; The protocol of <tt>ObjectMemory</tt>
+contains pairs of messages for fetching and storing object pointers or
+numerical values in an object's fields.
+<dl>
+<dd>
+<i>object pointer access</i></dd>
+
+<dl>
+<dd>
+<b>fetchPointer: fieldIndex ofObject: objectPointer</b></dd>
+
+<dl>
+<dd>
+Return the object pointer found in the field numbered <tt>fieldIndex</tt>
+of the object associated with <tt>objectPointer</tt>.</dd>
+</dl>
+
+<dd>
+<b>storePointer: fieldIndex ofObject: objectPointer withValue: valuePointer</b></dd>
+
+<dl>
+<dd>
+Store the object pointer <tt>valuePointer</tt> in the field numbered <tt>fieldIndex</tt>
+of the object associated with <tt>objectPointer</tt>.</dd>
+</dl>
+</dl>
+
+<dd>
+<i>word access</i></dd>
+
+<dl>
+<dd>
+<b>fetchWord: fieldIndex ofObject: objectPointer</b></dd>
+
+<dl>
+<dd>
+Return the 16-bit numerical value found in the field numbered <tt>fieldIndex</tt>
+of the object associated with <tt>objectPointer</tt>.</dd>
+</dl>
+
+<dd>
+<b>storeWord: fieldIndex ofObject: objectPointer withValue: valueWord</b></dd>
+
+<dl>
+<dd>
+Store the 16-bit numerical value <tt>valueWord</tt> in the field numbered
+<tt>fieldIndex</tt>
+of the object associated with <tt>objectPointer</tt>.</dd>
+</dl>
+</dl>
+
+<dd>
+<i>byte access</i></dd>
+
+<dl>
+<dd>
+<b>fetchByte: byteIndex ofObject: objectPointer</b></dd>
+
+<dl>
+<dd>
+Return the 8-bit numerical value found in the byte numbered <tt>byteIndex</tt>
+of the object associated with <tt>objectPointer</tt>.</dd>
+</dl>
+
+<dd>
+<b>storeByte: byteIndex ofObject: objectPointer withValue: valueByte</b></dd>
+
+<dl>
+<dd>
+Store the 8-bit numerical value <tt>valueByte</tt> in the byte numbered
+<tt>byteIndex</tt>
+of the object associated with <tt>objectPointer</tt>.</dd>
+</dl>
+</dl>
+</dl>
+&nbsp;&nbsp;&nbsp; Note that <tt>fetchPointer:ofObject:</tt> and <tt>fetchWord:ofObject:</tt>
+will probably be implemented in an identical fashion, since they both load
+a 16-bit quantity. However, the implementation of <tt>storePointer:ofObject:</tt>
+will be different from the implementation of <tt>storeWord:ofObject:</tt>
+since it will have to perform reference counting (see <a href="../bluebook/bluebook_chapter30.html">Chapter
+30</a>) if the object memory keeps dynamic reference counts. We have maintained
+a separate interface for <tt>fetchPointer:ofObject:</tt> and <tt>fetchWord:ofObject:</tt>
+for the sake of symmetry.
+<br>&nbsp;&nbsp;&nbsp; Even though most of the maintenance of reference
+counts can be done automatically in the <tt>storePointer:ofObject:withValue:</tt>
+routine, there are some points at which the interpreter routines must directly
+manipulate the reference counts. Therefore, the following two routines
+are included in the object memory interface. If an object memory uses only
+garbage collection to reclaim unreferenced objects, these routines are
+no-ops.
+<dl>
+<dd>
+<i>reference counting</i></dd>
+
+<dl>
+<dd>
+<b>increaseReferencesTo: objectPointer</b></dd>
+
+<dl>
+<dd>
+Add one to the reference count of the object whose object pointer is <tt>objectPointer</tt>.</dd>
+</dl>
+
+<dd>
+<b>decreaseReferencesTo: objectPointer</b></dd>
+
+<dl>
+<dd>
+Subtract one from the reference count of the object whose object pointer
+is <tt>objectPointer</tt>.</dd>
+</dl>
+</dl>
+</dl>
+Since every object contains the object pointer of its class description,
+that pointer could be considered the contents of one of the object's fields.
+Unlike other fields, however, an object's class may be fetched, but its
+value may not be changed. Given the special nature of this pointer, it
+was decided not to access it in the same way. Therefore, there is a special
+protocol for fetching an object's class.
+<dl>
+<dd>
+<i>class pointer access</i></dd>
+
+<dl>
+<dd>
+<b>fetchClassOf: objectPointer</b></dd>
+
+<dl>
+<dd>
+Return the object pointer of the class-describing object for the object
+associated with <tt>objectPointer</tt>.</dd>
+</dl>
+</dl>
+</dl>
+The length of an object might also be thought of as the contents of one
+of its fields. However, it is like the class field in that it may not be
+changed. There are two messages in the object memory protocol that ask
+for the number of words in an object and the number of bytes in an object.
+Note that we have not made a distinction between words and pointers in
+this case since we assume that they both fit in exactly one field.
+<dl>
+<dd>
+<i>length access</i></dd>
+
+<dl>
+<dd>
+<b>fetchWordLengthOf: objectPointer</b></dd>
+
+<dl>
+<dd>
+Return the number of fields in the object associated with <tt>objectPointer</tt>.</dd>
+</dl>
+
+<dd>
+<b>fetchByteLengthOf: objectPointer</b></dd>
+
+<dl>
+<dd>
+Return the number of byte fields in the object associated with <tt>objectPointer</tt>.</dd>
+</dl>
+</dl>
+</dl>
+Another important service of the object memory is to create new objects.
+The object memory must be supplied with a class and a length and will respond
+with a new object pointer. Again, there are three versions for creating
+objects with pointers, words, or bytes.
+<dl>
+<dd>
+<i>object creation</i></dd>
+
+<dl>
+<dd>
+<b>instantiateClass: classPointer withPointers: instanceSize</b></dd>
+
+<dl>
+<dd>
+Create a new instance of the class whose object pointer is <tt>classPointer</tt>
+with <tt>instanceSize</tt> fields that will contain pointers. Return the
+object pointer of the new object.</dd>
+</dl>
+
+<dd>
+<b>instantiateClass: classPointer withWords: instanceSize</b></dd>
+
+<dl>
+<dd>
+Create a new instance of the class whose object pointer is <tt>classPointer</tt>
+with <tt>instanceSize</tt> fields that will contain 16-bit numerical values.
+Return the object pointer of the new object.</dd>
+</dl>
+
+<dd>
+<b>instantiateClass: classPointer withBytes: instanceByteSize</b></dd>
+
+<dl>
+<dd>
+Create a new instance of the class whose object pointer is <tt>classPointer</tt>
+with room for <tt>instanceByteSize</tt> 8-bit numerical values. Return
+the object pointer of the new object.</dd>
+</dl>
+</dl>
+</dl>
+Two routines of the object memory allow the instances of a class to be
+enumerated. These follow an arbitrary ordering of object pointers. Using
+the numerical order of the pointers themselves is reasonable.
+<dl>
+<dd>
+<i>instance enumeration</i></dd>
+
+<dl>
+<dd>
+<b>initialInstanceOf: classPointer</b></dd>
+
+<dl>
+<dd>
+Return the object pointer of the first instance of the class whose object
+pointer is <tt>classPointer</tt> in the defined ordering (e.g., the one
+with the smallest object pointer).</dd>
+</dl>
+
+<dd>
+<b>instanceAfter: objectPointer</b></dd>
+
+<dl>
+<dd>
+Return the object pointer of the next instance of the same class as the
+object whose object pointer is <tt>objectPointer</tt> in the defined ordering
+(e.g., the one with the next larger object pointer).</dd>
+</dl>
+</dl>
+</dl>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Another routine of the object
+memory allows the object pointers of two objects to be interchanged.
+<dl>
+<dd>
+<i>pointer Swapping</i></dd>
+
+<dl>
+<dd>
+<b>swapPointersOf: firstPointer and: secondPointer</b></dd>
+
+<dl>
+<dd>
+Make <tt>firstPointer</tt> refer to the object whose object pointer was
+<tt>secondPointer</tt>
+and make <tt>secondPointer</tt> refer to the object whose object pointer
+was <tt>firstPointer</tt>.</dd>
+</dl>
+</dl>
+</dl>
+&nbsp;&nbsp;&nbsp; As described in <a href="../bluebook/bluebook_chapter26.html">Chapter
+26</a>, integers between -16384 and 16383 are encoded directly as object
+pointers with a 1 in the low-order bit position and the appropriate 2's
+complement value stored in the high-order 15 bits. These objects are instances
+of class <tt>SmallInteger</tt>. A <tt>SmallInteger's</tt> value, which
+would ordinarily be stored in a field, is actually determined from its
+object pointer. So instead of storing a value into a <tt>SmallInteger's</tt>
+field, the interpreter must request the object pointer of a <tt>SmallInteger</tt>
+with the desired value (using the <tt>integerObjectOf:</tt> routine). And
+instead of fetching the value from a field, it must request the value associated
+with the object pointer (using the <tt>integerValueOf:</tt> routine). There
+are also two routines that determine whether an object pointer refers to
+a <tt>SmallInteger</tt> (<tt>isIntegerObject:</tt>) and whether a value
+is in the right range to be represented as a <tt>SmallInteger</tt> (<tt>isIntegerValue:</tt>).
+The function of the <tt>isIntegerObject:</tt> routine can also be performed
+by requesting the class of the object and seeing if it is <tt>SmallInteger</tt>.
+<dl>
+<dd>
+<i>integer access</i></dd>
+
+<dl>
+<dd>
+<b>integerValueOf: objectPointer</b></dd>
+
+<dl>
+<dd>
+Return the value of the instance of <tt>SmallInteger</tt> whose pointer
+is <tt>objectPointer</tt>.</dd>
+</dl>
+
+<dd>
+<b>integerObjectOf: value</b></dd>
+
+<dl>
+<dd>
+Return the object pointer for an instance of <tt>SmallInteger</tt> whose
+value is <tt>value</tt>.</dd>
+</dl>
+
+<dd>
+<b>isIntegerObject: objectPointer</b></dd>
+
+<dl>
+<dd>
+Return <tt>true</tt> if <tt>objectPointer</tt> is an instance of <tt>SmallInteger</tt>,
+<tt>false</tt>
+if not.</dd>
+</dl>
+
+<dd>
+<b>isIntegerValue: value</b></dd>
+
+<dl>
+<dd>
+Return <tt>true</tt> if <tt>value</tt> can be represented as an instance
+of <tt>SmallInteger</tt>, <tt>false</tt> if not.</dd>
+</dl>
+</dl>
+</dl>
+The interpreter provides two special routines to access fields that contain
+<tt>SmallIntegers</tt>.
+The <tt>fetchInteger:ofObject:</tt> routine returns the value of a <tt>SmallInteger</tt>
+whose pointer is stored in the specified field. The check to make sure
+that the pointer is for a <tt>SmallInteger</tt> is made for uses of this
+routine when non-<tt>SmallIntegers</tt> can be tolerated. The <tt>primitiveFail</tt>
+routine will be described in the section on primitive routines.
+<dl>
+<dd>
+<b>fetchInteger: fieldIndex ofObject: objectPointer</b></dd>
+
+<dl>
+<dd>
+| integerPointer |</dd>
+
+<dd>
+integerPointer := memory fetchPointer: fieldIndex</dd>
+
+<dl>
+<dl>
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ofObject: objectPointer.</dd>
+</dl>
+</dl>
+</dl>
+
+<dd>
+(memory isIntegerObject: integerPointer)</dd>
+
+<dl>
+<dd>
+ifTrue: [^memory integerValueOf: integerPointer]</dd>
+
+<dd>
+ifFalse: [^self primitiveFail]</dd>
+</dl>
+</dl>
+</dl>
+The <tt>storeInteger:ofObject:withValue:</tt> routine stores the pointer
+of the <tt>SmallInteger</tt> with specified value in the specified field.
+<dl>
+<dd>
+<b>storeInteger: fieldIndex ofObject: objectPointer withValue: integerValue</b></dd>
+
+<dl>
+<dd>
+| integerPointer |</dd>
+
+<dd>
+(memory isIntegerValue: integerValue)</dd>
+
+<dl>
+<dd>
+ifTrue: [integerPointer := memory integerObjectOf: integerValue.</dd>
+
+<dl>
+<dd>
+memory storePointer: fieldIndex</dd>
+
+<dl>
+<dd>
+&nbsp;&nbsp; ofObject: objectPointer</dd>
+
+<dd>
+&nbsp;&nbsp; withValue: integerPointer]</dd>
+</dl>
+</dl>
+
+<dd>
+ifFalse: [^self primitiveFail]</dd>
+</dl>
+</dl>
+</dl>
+The interpreter also provides a routine to perform a transfer of several
+pointers from one object to another. It takes the number of pointers to
+transfer, and the initial field index and object pointer of the source
+and destination objects as arguments.
+<dl>
+<dd>
+<b>transfer: count fromIndex: firstFrom ofObject: fromOop toIndex: firstTo
+ofObject: toOop</b></dd>
+
+<dl>
+<dd>
+| fromIndex toIndex lastFrom oop |</dd>
+
+<dd>
+fromIndex := firstFrom.</dd>
+
+<dd>
+lastFrom := firstFrom + count.</dd>
+
+<dd>
+toIndex := firstTo.</dd>
+
+<dd>
+[fromIndex &lt; lastFrom] whileTrue:</dd>
+
+<dl>
+<dd>
+[oop := memory fetchPointer: fromIndex</dd>
+
+<dl>
+<dl>
+<dd>
+&nbsp; ofObject: fromOop.</dd>
+</dl>
+</dl>
+
+<dd>
+memory storePointer: toIndex</dd>
+
+<dl>
+<dd>
+&nbsp;&nbsp; ofObject: toOop</dd>
+
+<dd>
+&nbsp;&nbsp; withValue: oop.</dd>
+</dl>
+
+<dd>
+memory storePointer: fromIndex</dd>
+
+<dl>
+<dd>
+&nbsp;&nbsp; ofObject: fromOop</dd>
+
+<dd>
+&nbsp;&nbsp; withValue: NilPointer.</dd>
+</dl>
+
+<dd>
+fromIndex := fromIndex + 1.</dd>
+
+<dd>
+toIndex := toIndex + 1]</dd>
+</dl>
+</dl>
+</dl>
+The interpreter also provides routines to extract bit fields from numerical
+values. These routines refer to the high-order bit with index 0 and the
+low-order bit with index 15.
+<dl>
+<dd>
+<b>extractBits: firstBitIndex to: lastBitIndex of: anInteger</b></dd>
+
+<dl>
+<dd>
+^(anInteger bitShift: lastBitIndex - 15)</dd>
+
+<dl>
+<dd>
+bitAnd: (2 raisedTo: lastBitIndex - firstBitIndex + 1) - 1</dd>
+</dl>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>highByteOf: anInteger</b></dd>
+
+<dl>
+<dd>
+^self extractBits: 0 to: 7 of: anInteger</dd>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>lowByteOf: anInteger</b></dd>
+
+<dl>
+<dd>
+^self extractBits 8 to: 15 of: anInteger</dd>
+</dl>
+</dl>
+
+<center>
+<hr size="1" width="80%"><a name="ObjectsUsedByTheInterpreter27"></a><b><font color="#3333FF"><font size="+2">Objects
+Used by the Interpreter</font></font></b>
+<hr size="1" width="80%"></center>
+This section describes what might be called the data structures of the
+by the interpreter. Although they are objects, and therefore more than
+data interpreter structures, the interpreter treats these objects as data
+structures. The first two types of object correspond to data structures
+found in the interpreters for most languages. <i>Methods</i> correspond
+to programs, subroutines, or procedures. <i>Contexts</i> correspond to
+stack frames or activation records. The final structure described in this
+section, that of <i>classes</i>, is not used by the interpreter for most
+languages but only by the compiler. Classes correspond to aspects of the
+type declarations of some other languages. Because of the nature of Smalltalk
+messages, the classes must be used by the interpreter at runtime.
+<br>&nbsp;&nbsp;&nbsp; There are many constants included in the formal
+specification. They mostly represent object pointers of known objects or
+field indices for certain kinds of objects. Most of the constants will
+be named and a routine that initializes them will be included as a specification
+of their value. As an example, the following routines initialize the object
+pointers known to the interpreter.
+<dl>
+<dd>
+<b>initializeSmallIntegers</b></dd>
+
+<dl>
+<dd>
+<i><font color="#993366">"SmallIntegers"</font></i></dd>
+
+<dd>
+MinusOnePointer := 65535.</dd>
+
+<dd>
+ZeroPointer := 1.</dd>
+
+<dd>
+OnePointer := 3.</dd>
+
+<dd>
+TwoPointer := 5</dd>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>initializeGuaranteedPointers</b></dd>
+
+<dl>
+<dd>
+<i><font color="#993366">"UndefinedObject and Booleans"</font></i></dd>
+
+<dd>
+NilPointer := 2.</dd>
+
+<dd>
+FalsePointer := 4.</dd>
+
+<dd>
+TruePointer := 6.</dd>
+
+<dd>
+<i><font color="#993366">"Root"</font></i></dd>
+
+<dd>
+SchedulerAssociationPointer := 8.</dd>
+
+<dd>
+<i><font color="#993366">"Classes"</font></i></dd>
+
+<dd>
+ClassStringPointer := 14.</dd>
+
+<dd>
+ClassArrayPointer := 16.</dd>
+
+<dd>
+ClassMethodContextPointer := 22.</dd>
+
+<dd>
+ClassBlockContextPointer := 24.</dd>
+
+<dd>
+ClassPointPointer := 26.</dd>
+
+<dd>
+ClassLargePositiveintegerPointer := 28.</dd>
+
+<dd>
+ClassMessagePointer := 32.</dd>
+
+<dd>
+ClassCharacterPointer := 40.</dd>
+
+<dd>
+<i><font color="#993366">"Selectors"</font></i></dd>
+
+<dd>
+DoesNotUnderstandSelector := 42.</dd>
+
+<dd>
+CannotReturnSelector := 44.</dd>
+
+<dd>
+MustBeBooleanSelector := 52.</dd>
+
+<dd>
+<i><font color="#993366">"Tables"</font></i></dd>
+
+<dd>
+SpecialSelectorsPointer := 48.</dd>
+
+<dd>
+CharacterTablePointer := 50</dd>
+</dl>
+</dl>
+<a name="CompiledMethods27"></a><b><i><font color="#000099"><font size="+1">Compiled
+Methods</font></font></i></b>
+<br>
+<hr align="LEFT" noshade="noshade" size="1" width="60%">The bytecodes executed by the
+interpreter are found in instances of <tt>CompiledMethod</tt>. The bytecodes
+are stored as 8-bit values, two to a word. In addition to the bytecodes,
+a <tt>CompiledMethod</tt> contains some object pointers. The first of these
+object pointers is called the <i>method header</i> and the rest of the
+object pointers make up the method's <i>literal frame</i>. <a href="../bluebook_chapter27.html#Figure_27.1">Figure
+27.1</a> shows the structure of a <tt>CompiledMethod</tt> and the following
+routine initializes the indices used to access fields of <tt>CompiledMethods</tt>.
+<br><a name="Figure_27.1"></a>
+<center><table cellpadding="2" cellspacing="2">
+<tbody><tr>
+<td><img src="bluebook_chapter27_files/figure27_1.gif" height="214" width="155"></td>
+</tr>
+
+<tr>
+<td align="CENTER" valign="CENTER"><b>Figure 27.1</b></td>
+</tr>
+</tbody></table></center>
+
+<dl>
+<dd>
+<b>initializeMethodIndices</b></dd>
+
+<dl>
+<dd>
+<i><font color="#993366">"Class CompiledMethod"</font></i></dd>
+
+<dd>
+HeaderIndex := 0.</dd>
+
+<dd>
+LiteralStart := 1</dd>
+</dl>
+</dl>
+The header is a <tt>SmallInteger</tt> that encodes certain information
+about the <tt>CompiledMethod</tt>.
+<dl>
+<dd>
+<b>headerOf: methodPointer</b></dd>
+
+<dl>
+<dd>
+^memory fetchPointer: HeaderIndex</dd>
+
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp; ofObject: methodPointer</dd>
+</dl>
+</dl>
+</dl>
+The literal frame contains pointers to objects referred to by the bytecodes.
+These include the selectors of messages that the method sends, and shared
+variables and constants to which the method refers.
+<dl>
+<dd>
+<b>literal: offset ofMethod: methodPointer</b></dd>
+
+<dl>
+<dd>
+^memory fetchPointer: offset + LiteralStart</dd>
+
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp; ofObject: methodPointer</dd>
+</dl>
+</dl>
+</dl>
+Following the header and literals of a method are the bytecodes. Methods
+are the only objects in the Smalltalk system that store both object pointers
+(in the header and literal frame) and numerical values (in the bytecodes).
+The form of the bytecodes will be discussed in the <a href="../bluebook/bluebook_chapter28.html">next
+chapter</a>.
+<p><img src="bluebook_chapter27_files/bluesquare.gif" align="TEXTTOP" height="20" width="20"><b><i><font size="+1">Method
+Headers</font></i></b>&nbsp;&nbsp; Since the method header is a <tt>SmallInteger</tt>,
+its value will be encoded in its pointer. The high-order 15 bits of the
+pointer are available to encode information; the low-order bit must be
+a one to indicate that the pointer is for a <tt>SmallInteger</tt>. The
+header includes four bit fields that encode information about the <tt>CompiledMethod</tt>.
+<a href="../bluebook/bluebook_chapter27.html#Figure_27.2">Figure
+27.2</a> shows the bit fields of a header.
+<br><a name="Figure_27.2"></a>
+</p><center><table cellpadding="2" cellspacing="2">
+<tbody><tr>
+<td><img src="bluebook_chapter27_files/figure27_2.gif" height="90" width="379"></td>
+</tr>
+
+<tr>
+<td align="CENTER" valign="CENTER"><b>Figure 27.2</b></td>
+</tr>
+</tbody></table></center>
+The temporary count indicates the number of temporary variables used by
+the <tt>CompiledMethod</tt>. This includes the number of arguments.
+<dl>
+<dd>
+<b>temporaryCountof: methodPointer</b></dd>
+
+<dl>
+<dd>
+^self extractBits: 3 to: 7 of: (self headerOf: methodPointer)</dd>
+</dl>
+</dl>
+The large context flag indicates which of two sizes of <tt>MethodContext</tt>
+are needed. The flag indicates whether the sum of the maximum stack depth
+and the number of temporary variables needed is greater than twelve. The
+smaller <tt>MethodContexts</tt> have room for 12 and the larger have room
+for 32.
+<dl>
+<dd>
+<b>largeContextFlagOf: methodPointer</b></dd>
+
+<dl>
+<dd>
+^self extractBits: 8 to: 8 of: (self headerOf: methodPointer)</dd>
+</dl>
+</dl>
+The literal count indicates the size of the <tt>CompiledMethod's</tt> literal
+frame. This, in turn, indicates where the <tt>CompiledMethod's</tt> bytecodes
+start.
+<dl>
+<dd>
+<b>literalCountOf: methodPointer</b></dd>
+
+<dl>
+<dd>
+^self literalCountOfHeader: (self headerOf: methodPointer)</dd>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>literalCountOfHeader: headerPointer</b></dd>
+
+<dl>
+<dd>
+^self extractBits: 9 to: 14 of: headerPointer</dd>
+</dl>
+</dl>
+The object pointer count indicates the total number of object pointers
+in a <tt>CompiledMethod</tt>, including the header and literal frame.
+<dl>
+<dd>
+<b>objectPointerCountOf: methodPointer</b></dd>
+
+<dl>
+<dd>
+^(self literalCountOf: methodPointer) + LiteralStart</dd>
+</dl>
+</dl>
+The following routine returns the byte index of the first bytecode of a
+<tt>CompiledMethod</tt>.
+<dl>
+<dd>
+<b>initialInstructionPointerOfMethod: methodPointer</b></dd>
+
+<dl>
+<dd>
+^((self literalCountOf: methodPointer) + LiteralStart) * 2 + 1</dd>
+</dl>
+</dl>
+The flag value is used to encode the number of arguments a <tt>CompiledMethod</tt>
+takes and whether or not it has an associated primitive routine.
+<dl>
+<dd>
+<b>flagValueOf: methodPointer</b></dd>
+
+<dl>
+<dd>
+^self extractBits: 0 to: 2 of: (self headerOf: methodPointer)</dd>
+</dl>
+</dl>
+The eight possible flag values have the following meanings:
+<br>&nbsp;
+<center><table border="0" cellspacing="0" width="60%">
+<tbody><tr>
+<th width="25%">flag value</th>
+
+<th>meaning</th>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP">
+<center>0-4</center>
+</td>
+
+<td>no primitive and 0 to 4 arguments&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP">
+<center>5</center>
+</td>
+
+<td>primitive return of <tt>self</tt> (0 arguments)</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP">
+<center>6</center>
+</td>
+
+<td>primitive return of an instance variable (0 arguments)</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP">
+<dl>
+<center>7</center>
+</dl>
+</td>
+
+<td align="LEFT" valign="TOP">a header extension contains the number of arguments
+and a primitive index
+<br>&nbsp;&nbsp;&nbsp;&nbsp;</td>
+</tr>
+</tbody></table></center>
+Since the majority of <tt>CompiledMethods</tt> have four or fewer arguments
+and do not have an associated primitive routine, the flag value is usually
+simply the number of arguments.
+<p><img src="bluebook_chapter27_files/bluesquare.gif" align="TEXTTOP" height="20" width="20"><b><i><font size="+1">Special
+Primitive Methods</font></i></b>&nbsp;&nbsp; Smalltalk methods that <i>only</i>
+return the receiver of the message (<tt>self</tt>) produce <tt>CompiledMethods</tt>
+that have no literals or bytecodes, only a header with a flag value of
+5. In similar fashion, Smalltalk methods that only return the value of
+one of the receiver's instance variables produce <tt>CompiledMethods</tt>
+that contain only headers with a flag value of 6. All other methods produce
+<tt>CompiledMethods</tt>
+with bytecodes. When the flag value is 6, the index of the instance variable
+to return is found in the header in the bit field ordinarily used to indicate
+the number of temporary variables used by the <tt>CompiledMethod</tt>.
+<a href="../bluebook/bluebook_chapter27.html#Figure_27.3">Figure
+27.3</a> shows a <tt>CompiledMethod</tt> for a Smalltalk method that only
+returns a receiver instance variable.
+<br><a name="Figure_27.3"></a>
+</p><center><table cellpadding="2" cellspacing="2">
+<tbody><tr>
+<td><img src="bluebook_chapter27_files/figure27_3.gif" height="69" width="376"></td>
+</tr>
+
+<tr>
+<td align="CENTER" valign="CENTER"><b>Figure 27.3</b></td>
+</tr>
+</tbody></table></center>
+The following routine returns the index of the field representing the instance
+variable to be returned in the case that the flag value is 6.
+<dl>
+<dd>
+<b>fieldIndexOf: methodPointer</b></dd>
+
+<dl>
+<dd>
+^self extractBits: 3 to: 7 of: (self headerOf: methodPointer)</dd>
+</dl>
+</dl>
+<img src="bluebook_chapter27_files/bluesquare.gif" align="TEXTTOP" height="20" width="20"><b><i><font size="+1">Method
+Header Extensions&nbsp;</font> </i></b>If the flag value is 7, the next
+to last literal is a header extension, which is another <tt>SmallInteger</tt>.
+The header extension includes two bit fields that encode the argument count
+and primitive index of the <tt>CompiledMethod</tt>. <a href="../bluebook/bluebook_chapter27.html#Figure_27.4">Figure
+27.4</a> shows the bit fields of a header extension.
+<br><a name="Figure_27.4"></a>
+<center><table cellpadding="2" cellspacing="2">
+<tbody><tr>
+<td><img src="bluebook_chapter27_files/figure27_4.gif" height="70" width="375"></td>
+</tr>
+
+<tr>
+<td align="CENTER" valign="CENTER"><b>Figure 27.4</b></td>
+</tr>
+</tbody></table></center>
+The following routines are used to access a header extension and its bit
+fields.
+<dl>
+<dd>
+<b>headerExtensionOf: methodPointer</b></dd>
+
+<dl>
+<dd>
+| literalCount |</dd>
+
+<dd>
+literalCount := self literalCountOf: methodPointer.</dd>
+
+<dd>
+^self literal: literalCount - 2</dd>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ofMethod: methodPointer</dd>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>argumentCountOf: methodPointer</b></dd>
+
+<dl>
+<dd>
+| flagValue |</dd>
+
+<dd>
+flagValue := self flagValueOf: methodPointer.</dd>
+
+<dd>
+flagValue &lt; 5&nbsp; ifTrue: [^flagValue].</dd>
+
+<dd>
+flagValue &lt; 7</dd>
+
+<dl>
+<dd>
+ifTrue: [^0]</dd>
+
+<dd>
+ifFalse: [^self extractBits: 2 to: 6</dd>
+
+<dl>
+<dl>
+<dd>
+&nbsp;of: (self headerExtensionOf: methodPointer)]</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>primitiveIndexOf: methodPointer</b></dd>
+
+<dl>
+<dd>
+| flagValue |</dd>
+
+<dd>
+flagValue := self flagValueOf: methodPointer.</dd>
+
+<dd>
+flagValue = 7</dd>
+
+<dl>
+<dd>
+ifTrue: [^self extractBits: 7 to: 14</dd>
+
+<dl>
+<dl>
+<dd>
+of: (self headerExtensionOf: methodPointer)]</dd>
+</dl>
+</dl>
+
+<dd>
+ifFalse: [^0]</dd>
+</dl>
+</dl>
+</dl>
+Any <tt>CompiledMethod</tt> that sends a superclass message (i.e., a message
+to <tt>super</tt>) or contains a header extension, will have as its last
+literal an <tt>Association</tt> whose value is the class in whose message
+dictionary the <tt>CompiledMethod</tt> is found. This is called the <i>method
+class</i> and is accessed by the following routine.
+<dl>
+<dd>
+<b>methodClassOf: methodPointer</b></dd>
+
+<dl>
+<dd>
+| literalCount association |</dd>
+
+<dd>
+literalCount := self literalCountOf: methodPointer.</dd>
+
+<dd>
+association := self literal: literalCount - 1</dd>
+
+<dl>
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ofMethod: methodPointer.</dd>
+</dl>
+</dl>
+
+<dd>
+^memory fetchPointer: ValueIndex</dd>
+
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp; ofObject: association</dd>
+</dl>
+</dl>
+</dl>
+An example of a <tt>CompiledMethod</tt> whose literal frame contained a
+method class was given in the <a href="../bluebook/bluebook_chapter26.html">last chapter</a>.
+The <tt>CompiledMethod</tt> for the <tt>intersect:</tt> message to <tt>ShadedRectangle</tt>
+was shown in the section of the last chapter called <a href="../bluebook/bluebook_chapter26.html#Messages26">Messages</a>.
+<p><a name="Contexts27"></a><b><i><font color="#000099"><font size="+1">Contexts</font></font></i></b>
+<br>
+</p><hr align="LEFT" noshade="noshade" size="1" width="60%"><font color="#000099"><font size="+1">T</font></font>he
+interpreter uses <i>contexts</i> to represent the state of its execution
+of <tt>CompiledMethods</tt> and blocks. A context can be a <tt>MethodContext</tt>
+or a <tt>BlockContext</tt>. A <tt>MethodContext</tt> represents the execution
+of a <tt>CompiledMethod</tt> that was invoked by a message. <a href="../bluebook/bluebook_chapter27.html#Figure_27.5">Figure
+27.5</a> shows a <tt>MethodContext</tt> and its <tt>CompiledMethod</tt>.
+<br><a name="Figure_27.5"></a>
+<center><table cellpadding="2" cellspacing="2">
+<tbody><tr>
+<td><img src="bluebook_chapter27_files/figure27_5.gif" height="288" width="421"></td>
+</tr>
+
+<tr>
+<td align="CENTER" valign="CENTER"><b>Figure 27.5</b></td>
+</tr>
+</tbody></table></center>
+A <tt>BlockContext</tt> represents a block encountered in a <tt>CompiledMethod</tt>.
+A <tt>BlockContext</tt> refers to the <tt>MethodContext</tt> whose <tt>CompiledMethod</tt>
+contained the block it represents. This is called the <tt>BlockContext's</tt><i>home</i>.
+<a href="../bluebook/bluebook_chapter27.html#Figure_27.6">Figure
+27.6</a> shows a <tt>BlockContext</tt> and its home.
+<br>&nbsp;&nbsp;&nbsp; The indices used to access the fields of contexts
+are initialized by the following routine.
+<dl>
+<dd>
+<b>initializeContextIndices</b></dd>
+
+<dl>
+<dd>
+<i><font color="#993366">"Class MethodContext"</font></i></dd>
+
+<dd>
+SenderIndex := 0.</dd>
+
+<dd>
+InstructionPointerIndex := 1.</dd>
+
+<dd>
+StackPointerIndex := 2.</dd>
+
+<dd>
+MethodIndex := 3.</dd>
+
+<dd>
+ReceiverIndex := 5.</dd>
+
+<dd>
+TempFrameStart := 6.</dd>
+
+<dd>
+<i><font color="#993366">"Class BlockContext"</font></i></dd>
+
+<dd>
+CallerIndex := 0.</dd>
+
+<dd>
+BlockArgumentCountIndex := 3.</dd>
+
+<dd>
+InitialIPIndex := 4.</dd>
+
+<dd>
+HomeIndex := 5</dd>
+</dl>
+</dl>
+Both kinds of context have six fixed fields corresponding to six named
+instance variables. These fixed fields are followed by some indexable fields.
+The indexable fields are used to store the temporary frame (arguments and
+temporary variables) followed by the contents of the evaluation stack.
+The following routines are used to fetch and store the instruction pointer
+and stack pointer stored in a context.
+<br><a name="Figure_27.6"></a>
+<center><table cellpadding="2" cellspacing="2">
+<tbody><tr>
+<td><img src="bluebook_chapter27_files/figure27_6.gif" height="404" width="407"></td>
+</tr>
+
+<tr>
+<td align="CENTER" valign="CENTER"><b>Figure 27.6</b></td>
+</tr>
+</tbody></table></center>
+
+<dl>
+<dd>
+<b>instructionPointerOfContext: contextPointer</b></dd>
+
+<dl>
+<dd>
+^self fetchInteger: InstructionPointerIndex</dd>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ofObject: contextPointer</dd>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>storeInstructionPointerValue: value inContext: contextPointer</b></dd>
+
+<dl>
+<dd>
+self storeInteger: InstructionPointerIndex</dd>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ofObject: contextPointer</dd>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; withValue: value</dd>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>stackPointerOfContext: contextPointer</b></dd>
+
+<dl>
+<dd>
+^self fetchInteger: StackPointerIndex</dd>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ofObject: contextPointer</dd>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>storeStackPointerValue: value inContext: contextPointer</b></dd>
+
+<dl>
+<dd>
+self storeInteger: StackPointerIndex</dd>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ofObject: contextPointer</dd>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; withValue: value</dd>
+</dl>
+</dl>
+A <tt>BlockContext</tt> stores the number of block arguments it expects
+in one of its fields.
+<dl>
+<dd>
+<b>argumentCountOfBlock: blockPointer</b></dd>
+
+<dl>
+<dd>
+^self fetchInteger: BlockArgumentCountIndex</dd>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ofObject: blockPointer</dd>
+</dl>
+</dl>
+The context that represents the <tt>CompiledMethod</tt> or block currently
+being executed is called the <i>active context</i>. The interpreter caches
+in its registers the contents of the parts of the active context it uses
+most often. These registers are:
+<br>&nbsp;
+<table border="0" cellpadding="2" cellspacing="2" width="100%">
+<caption><b>Context-related Registers of the Interpreter</b></caption>
+
+<tbody><tr>
+<td align="LEFT" valign="TOP" width="20%"><tt>activeContext</tt></td>
+
+<td align="LEFT" valign="TOP">This is the active context itself. It is either
+a <tt>MethodContext</tt> or a <tt>BlockContext</tt>.&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"><tt>homeContext</tt></td>
+
+<td align="LEFT" valign="TOP">If the active context is a <tt>MethodContext</tt>,
+the home context is the same context. If the active context is a <tt>BlockContext</tt>,
+the home context is the contents of the home field of the active context.
+This will always be a <tt>MethodContext</tt>.&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"><tt>method</tt></td>
+
+<td align="LEFT" valign="TOP">This is the <tt>CompiledMethod</tt> that contains
+the bytecodes the interpreter is executing.&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"><tt>receiver</tt></td>
+
+<td align="LEFT" valign="TOP">This is the object that received the message
+that invoked the home context's method.&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"><tt>instructionPointer</tt></td>
+
+<td align="LEFT" valign="TOP">This is the byte index of the next bytecode of
+the method to be executed.&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP">
+<dl><tt>stackPointer</tt></dl>
+</td>
+
+<td align="LEFT" valign="TOP">This is the index of the field of the active
+context containing the top of the stack.
+<br>&nbsp;&nbsp;&nbsp;&nbsp;</td>
+</tr>
+</tbody></table>
+Whenever the active context changes (when a new <tt>CompiledMethod</tt>
+is invoked, when a <tt>CompiledMethod</tt> returns or when a process switch
+occurs), all of these registers must be updated using the following routine.
+<dl>
+<dd>
+<b>fetchContextRegisters</b></dd>
+
+<dl>
+<dd>
+(self isBlockContext: activeContext)</dd>
+
+<dl>
+<dd>
+ifTrue: [homeContext := memory fetchPointer: HomeIndex</dd>
+
+<dl>
+<dl>
+<dl>
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ofObject: activeContext]</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+
+<dd>
+ifFalse: [homeContext := activeContext].</dd>
+</dl>
+
+<dd>
+receiver := memory fetchPointer: ReceiverIndex</dd>
+
+<dl>
+<dl>
+<dl>
+<dd>
+ofObject: homeContext.</dd>
+</dl>
+</dl>
+</dl>
+
+<dd>
+method := memory fetchPointer: MethodIndex</dd>
+
+<dl>
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ofObject: homeContext.</dd>
+</dl>
+</dl>
+
+<dd>
+instruction Pointer := (self instructionPointerOfContext: activeContext)
+- 1.</dd>
+
+<dd>
+stackPointer := (self stackPointerOfContext: activeContext) + TempFrameStart
+- 1</dd>
+</dl>
+</dl>
+Note that the receiver and method are fetched from the <tt>homeContext</tt>
+and the <tt>instructionPointer</tt> and <tt>stackPointer</tt> are fetched
+from the <tt>activeContext</tt>. The interpreter tells the difference between
+<tt>MethodContexts</tt>
+and <tt>BlockContexts</tt> based on the fact that
+<tt>MethodContexts</tt>
+store the method pointer (an object pointer) and
+<tt>BlockContexts</tt>
+store the number of block arguments (an integer pointer) in the same field.
+If this location contains an integer pointer, the context is a <tt>BlockContext</tt>;
+otherwise, it is a <tt>MethodContext</tt>. The distinction could be made
+on the basis of the class of the context, but special provision would have
+to be made for subclasses of <tt>MethodContext</tt> and <tt>BlockContext</tt>.
+<dl>
+<dd>
+<b>isBlockContext: contextPointer</b></dd>
+
+<dl>
+<dd>
+| methodOrArguments |</dd>
+
+<dd>
+methodOrArguments := memory fetchPointer: MethodIndex</dd>
+
+<dl>
+<dl>
+<dl>
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp; ofObject: contextPointer.</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+
+<dd>
+^memory isIntegerObject: methodOrArguments</dd>
+</dl>
+</dl>
+Before a new context becomes the active context, the values of the instruction
+pointer and stack pointer must be stored into the active context with the
+following routine.
+<dl>
+<dd>
+<b>storeContextRegisters</b></dd>
+
+<dl>
+<dd>
+self storeInstructionPointerValue: instructionPointer + 1</dd>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; inContext: activeContext.</dd>
+
+<dd>
+self storeStackPointerValue: stackPointer - TempFrameStart + 1</dd>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; inContext: activeContext</dd>
+</dl>
+</dl>
+The values of the other cached registers do not change so they do not need
+to be stored back into the context. The instruction pointer stored in a
+context is a one-relative index to the method's fields because subscripting
+in Smalltalk (i.e., the <tt>at:</tt> message) takes one-relative indices.
+The memory, however, uses zero-relative indices; so the <tt>fetchContextRegisters</tt>
+routine subtracts one to convert it to a memory index and the <tt>storeContextRegisters</tt>
+routine adds the one back in. The stack pointer stored in a context tells
+how far the top of the evaluation stack is beyond the fixed fields of the
+context (i.e.. how far after the start of the temporary frame) because
+subscripting in Smalltalk takes fixed fields into account and fetches from
+the indexable fields after them. The memory, however, wants an index relative
+to the start of the object; so the <tt>fetchContextRegisters</tt> routine
+adds in the offset of the start of the temporary frame (a constant) and
+the <tt>storeContextRegisters</tt> routine subtracts the offset.
+<br>&nbsp;&nbsp;&nbsp; The following routines perform various operations
+on the stack of the active context.
+<dl>
+<dd>
+<b>push: object</b></dd>
+
+<dl>
+<dd>
+stackPointer := stackPointer + 1.</dd>
+
+<dd>
+memory storePointer: stackPointer</dd>
+
+<dl>
+<dd>
+&nbsp;ofObject: activeContext</dd>
+
+<dd>
+&nbsp;withValue: object</dd>
+</dl>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>popStack</b></dd>
+
+<dl>
+<dd>
+| stackTop |</dd>
+
+<dd>
+stackTop := memory fetchPointer: stackPointer</dd>
+
+<dl>
+<dl>
+<dl>
+<dd>
+&nbsp;ofObject: activeContext.</dd>
+</dl>
+</dl>
+</dl>
+
+<dd>
+stackPointer := stackPointer - 1.</dd>
+
+<dd>
+^stackTop</dd>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>stackTop</b></dd>
+
+<dl>
+<dd>
+^memory fetchPointer: stackPointer</dd>
+
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp; ofObject: activeContext</dd>
+</dl>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>stackValue: offset</b></dd>
+
+<dl>
+<dd>
+^memory fetchPointer: stackPointer - offset</dd>
+
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp; ofObject: activeContext</dd>
+</dl>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>pop: number</b></dd>
+
+<dl>
+<dd>
+stackPointer := stackPointer - number</dd>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>unPop: number</b></dd>
+
+<dl>
+<dd>
+stackPointer := stackPointer + number</dd>
+</dl>
+</dl>
+The active context register must count as a reference to the part of the
+object memory that deallocates unreferenced objects. If the object memory
+maintains dynamic reference counts, the routine to change active contexts
+must perform the appropriate reference counting.
+<dl>
+<dd>
+<b>newActiveContext: aContext</b></dd>
+
+<dl>
+<dd>
+self storeContextRegisters.</dd>
+
+<dd>
+memory decreaseReferencesTo: activeContext.</dd>
+
+<dd>
+activeContext := aContext.</dd>
+
+<dd>
+memory increaseReferencesTo: activeContext.</dd>
+
+<dd>
+self fetchContextRegisters</dd>
+</dl>
+</dl>
+The following routines fetch fields of contexts needed by the interpreter
+infrequently enough that they are not cached in registers. The sender is
+the context to be returned to when a <tt>CompiledMethod</tt> returns a
+value (either because of a "<tt>^</tt>" or at the end of the method). Since
+an explicit return from within a block should return from the <tt>CompiledMethod</tt>
+enclosing the block, the sender is fetched from the home context.
+<dl>
+<dd>
+<b>sender</b></dd>
+
+<dl>
+<dd>
+^memory fetchPointer: SenderIndex</dd>
+
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp; ofObject: homeContext</dd>
+</dl>
+</dl>
+</dl>
+The caller is the context to be returned to when a <tt>BlockContext</tt>
+returns a value (at the end of the block).
+<dl>
+<dd>
+<b>caller</b></dd>
+
+<dl>
+<dd>
+^memory fetchPointer: SenderIndex</dd>
+
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp; ofObject: activeContext</dd>
+</dl>
+</dl>
+</dl>
+Since temporaries referenced in a block are the same as those referenced
+in the <tt>CompiledMethod</tt> enclosing the block, the temporaries are
+fetched from the home context.
+<dl>
+<dd>
+<b>temporary: offset</b></dd>
+
+<dl>
+<dd>
+^memory fetchPointer: offset + TempFrameStart</dd>
+
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp; ofObject: homeContext</dd>
+</dl>
+</dl>
+</dl>
+The following routine provides convenient access to the literals of the
+currently executing <tt>CompiledMethod</tt>.
+<dl>
+<dd>
+<b>literal: offset</b></dd>
+
+<dl>
+<dd>
+^self literal: offset</dd>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ofMethod: method</dd>
+</dl>
+</dl>
+<a name="Classes27"></a><b><i><font color="#000099"><font size="+1">Classes</font></font></i></b>
+<br>
+<hr align="LEFT" noshade="noshade" size="1" width="60%"><font color="#000099"><font size="+1">T</font></font>he
+interpreter finds the appropriate <tt>CompiledMethod</tt> to execute in
+response to a message by searching a <i>message dictionary</i>. The message
+dictionary is found in the <i>class</i> of the message receiver or one
+of the <i>superclasses</i> of that class. The structure of a class and
+its associated message dictionary is shown in <a href="../bluebook/bluebook_chapter27.html#Figure_27.7">Figure
+27.7</a>. In addition to the message dictionary and superclass the interpreter
+uses the class's <i>instance specification</i> to determine its instances'
+memory requirements. The other fields of a class are used only by Smalltalk
+methods and ignored by the interpreter. The following routine initializes
+the indices used to access fields of classes and their message dictionaries.
+<br><a name="Figure_27.7"></a>
+<center><table cellpadding="2" cellspacing="2">
+<tbody><tr>
+<td><img src="bluebook_chapter27_files/figure27_7.gif" height="239" width="561"></td>
+</tr>
+
+<tr>
+<td align="CENTER" valign="CENTER"><b>Figure 27.7</b></td>
+</tr>
+</tbody></table></center>
+
+<dl>
+<dd>
+<b>initializeClassIndices</b></dd>
+
+<dl>
+<dd>
+<i><font color="#993366">"Class Class"</font></i></dd>
+
+<dd>
+SuperclassIndex := 0.</dd>
+
+<dd>
+MessageDictionaryIndex := 1.</dd>
+
+<dd>
+InstanceSpecificationIndex := 2.</dd>
+
+<dd>
+<i><font color="#993366">"Fields of a message dictionary"</font></i></dd>
+
+<dd>
+MethodArrayIndex := 1.</dd>
+
+<dd>
+SelectorStart := 2</dd>
+</dl>
+</dl>
+The interpreter uses several registers to cache the state of the message
+lookup process.
+<br>&nbsp;
+<table border="0" cellpadding="2" cellspacing="2" width="100%">
+<caption><b>Class-related Registers of the Interpreter</b></caption>
+
+<tbody><tr>
+<td align="LEFT" valign="TOP" width="20%"><tt>messageSelector</tt></td>
+
+<td align="LEFT" valign="TOP">This is the selector of the message being sent.
+It is always a <tt>Symbol</tt>.&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"><tt>argumentCount</tt></td>
+
+<td align="LEFT" valign="TOP">This is the number of arguments in the message
+currently being sent. It indicates where the message receiver can be found
+on the stack since it is below the arguments.&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"><tt>newMethod</tt></td>
+
+<td align="LEFT" valign="TOP">This is the method associated with the <tt>messageSelector</tt>.&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP">
+<dl><tt>primitiveIndex</tt></dl>
+</td>
+
+<td align="LEFT" valign="TOP">This is the index of a primitive routine associated
+with <tt>newMethod</tt> if one exists.
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+</tr>
+</tbody></table>
+A message dictionary is an <tt>IdentityDictionary</tt>. <tt>IdentityDictionary</tt>
+is a subclass of <tt>Set</tt> with an additional <tt>Array</tt> containing
+values associated with the contents of the <tt>Set</tt>. The message selectors
+are stored in the indexed instance variables inherited from <tt>Set</tt>.
+The <tt>CompiledMethods</tt> are stored in an <tt>Array</tt> added by <tt>IdentityDictionary</tt>.
+A <tt>CompiledMethod</tt> has the same index in that <tt>Array</tt> that
+its selector has in the indexable variables of the dictionary object itself.
+The index at which to store the selector and <tt>CompiledMethod</tt> are
+computed by a hash function.
+<br>&nbsp;&nbsp;&nbsp; The selectors are instances of <tt>Symbol</tt>,
+so they may be tested for equality by testing their object pointers for
+equality. Since the object pointers of <tt>Symbols</tt> determine equality,
+the hash function may be a function of the object pointer. Since object
+pointers are allocated quasirandomly, the object pointer itself is a reasonable
+hash function. The pointer shifted right one bit will produce a better
+hash function, since all object pointers other than <tt>SmallIntegers</tt>
+are even.
+<dl>
+<dd>
+<b>hash: objectPointer</b></dd>
+
+<dl>
+<dd>
+^objectPointer bitShift: -1</dd>
+</dl>
+</dl>
+The message selector lookup assumes that methods have been put into the
+dictionary using the same hashing function. The hashing algorithm reduces
+the original hash function modulo the number of indexable locations in
+the dictionary. This gives an index in the dictionary. To make the computation
+of the modulo reduction simple, message dictionaries have an exact power
+of two fields. Therefore the modulo calculation can be performed by masking
+off an appropriate number of bits. If the selector is not found at the
+initial hash location, successive fields are examined until the selector
+is found or a <tt>nil</tt> is encountered. If a <tt>nil</tt> is encountered
+in the search, the selector is not in the dictionary. If the end of the
+dictionary is encountered while searching, the search wraps around and
+continues with the first field.
+<br>&nbsp;&nbsp;&nbsp; The following routine looks in a dictionary for
+a <tt>CompiledMethod</tt> associated with the <tt>Symbol</tt> in the <tt>messageSelector</tt>
+register. If it finds the <tt>Symbol</tt>, it stores the associated <tt>CompiledMethod's</tt>
+pointer into the <tt>newMethod</tt> register, its primitive index into
+the <tt>primitiveIndex</tt> register and returns <tt>true</tt>. If the
+<tt>Symbol</tt>
+is not found in the dictionary, the routine returns <tt>false</tt>. Since
+finding a <tt>nil</tt> or an appropriate <tt>Symbol</tt> are the only exit
+conditions of the loop, the routine must check for a full dictionary (i.e.,
+no <tt>nils</tt>). It does this by keeping track of whether it has wrapped
+around. If the search wraps around twice, the selector is not in the dictionary.
+<dl>
+<dd>
+<b>lookupMethodInDictionary: dictionary</b></dd>
+
+<dl>
+<dd>
+| length index mask wrapAround nextSelector methodArray |</dd>
+
+<dd>
+length := memory fetchWordLengthOf: dictionary.</dd>
+
+<dd>
+mask := length - SelectorStart - 1.</dd>
+
+<dd>
+index := (mask bitAnd: (self hash: messageSelector)) + SelectorStart.</dd>
+
+<dd>
+wrapAround := false.</dd>
+
+<dd>
+[true] whileTrue:</dd>
+
+<dl>
+<dd>
+[nextSelector := memory fetchPointer: index</dd>
+
+<dl>
+<dl>
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ofObject: dictionary.</dd>
+</dl>
+</dl>
+</dl>
+
+<dd>
+nextSelector = NilPointer ifTrue: [^false].</dd>
+
+<dd>
+nextSelector = messageSelector</dd>
+
+<dl>
+<dd>
+ifTrue: [methodArray := memory fetchPointer: MethodArrayIndex</dd>
+
+<dl>
+<dl>
+<dl>
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ofObject: dictionary.</dd>
+</dl>
+</dl>
+</dl>
+
+<dd>
+newMethod := memory fetchPointer: index - SelectorStart</dd>
+
+<dl>
+<dl>
+<dl>
+<dd>
+&nbsp;ofObject: methodArray.</dd>
+</dl>
+</dl>
+</dl>
+
+<dd>
+primitiveIndex := self primitiveIndexOf: newMethod.</dd>
+
+<dd>
+^true].</dd>
+</dl>
+</dl>
+
+<dd>
+index := index + 1.</dd>
+
+<dd>
+index = length</dd>
+
+<dl>
+<dd>
+ifTrue: [wrapAround ifTrue: [^false].</dd>
+
+<dl>
+<dd>
+wrapAround := true.</dd>
+
+<dd>
+index := SelectorStart]]</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+</dl>
+This routine is used in the following routine to find the method a class
+associates with a selector. If the selector is not found in the initial
+class's dictionary, it is looked up in the next class on the superclass
+chain. The search continues up the superclass chain until a method is found
+or the superclass chain is exhausted.
+<dl>
+<dd>
+<b>lookupMethodInClass: class</b></dd>
+
+<dl>
+<dd>
+| currentClass dictionary |</dd>
+
+<dd>
+currentClass := class.</dd>
+
+<dd>
+[currentClass ~= NilPointer]&nbsp; whileTrue:</dd>
+
+<dl>
+<dd>
+[dictionary := memory fetchPointer: MessageDictionaryIndex</dd>
+
+<dl>
+<dl>
+<dl>
+<dd>
+&nbsp;ofObject: currentClass.</dd>
+</dl>
+</dl>
+</dl>
+
+<dd>
+(self lookupMethodInDictionary: dictionary)</dd>
+
+<dl>
+<dd>
+ifTrue: [^true].</dd>
+</dl>
+
+<dd>
+currentClass := self superclassOf: currentClass].</dd>
+</dl>
+
+<dd>
+messageSelector = DoesNotUnderstandSelector</dd>
+
+<dl>
+<dd>
+ifTrue: [self error: 'Recursive not understood error encountered'].</dd>
+</dl>
+
+<dd>
+self createActualMessage.</dd>
+
+<dd>
+messageSelector := DoesNotUnderstandSelector.</dd>
+
+<dd>
+^self lookupMethodInClass: class</dd>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>superclassOf: classPointer</b></dd>
+
+<dl>
+<dd>
+^memory fetchPointer: SuperclassIndex</dd>
+
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp; ofObject: classPointer</dd>
+</dl>
+</dl>
+</dl>
+The interpreter needs to do something out of the ordinary when a message
+is sent to an object whose class and superclasses do not contain a <tt>CompiledMethod</tt>
+associated with the message selector. In keeping with the philosophy of
+Smalltalk, the interpreter sends a message. A <tt>CompiledMethod</tt> for
+this message is guaranteed to be found. The interpreter packages up the
+original message in an instance of class <tt>Message</tt> and then looks
+for a <tt>CompiledMethod</tt> associated with the selector <tt>doesNotUnderstand:</tt>.
+The <tt>Message</tt> becomes the single argument for the <tt>doesNotUnderstand:</tt>
+message. The <tt>doesNotUnderstand:</tt> message is defined in <tt>Object</tt>
+with a <tt>CompiledMethod</tt> that notifies the user. This <tt>CompiledMethod</tt>
+can be overridden in a user-defined class to do something else. Because
+of this, the <tt>lookupMethodInClass:</tt> routine will always complete
+by storing a pointer to a <tt>CompiledMethod</tt> in the <tt>newMethod</tt>
+register.
+<dl>
+<dd>
+<b>createActualMessage</b></dd>
+
+<dl>
+<dd>
+| argumentArray message |</dd>
+
+<dd>
+argumentArray := memory instantiateClass: ClassArrayPointer</dd>
+
+<dl>
+<dl>
+<dl>
+<dl>
+<dd>
+withPointers: argumentCount.</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+
+<dd>
+message := memory instantiateClass: ClassMessagePointer</dd>
+
+<dl>
+<dl>
+<dl>
+<dd>
+withPointers: self messageSize.</dd>
+</dl>
+</dl>
+</dl>
+
+<dd>
+memory storePointer: MessageSelectorIndex</dd>
+
+<dl>
+<dd>
+&nbsp;&nbsp; ofObject: message</dd>
+
+<dd>
+&nbsp;&nbsp; withValue: messageSelector.</dd>
+</dl>
+
+<dd>
+memory storePointer: MessageArgumentsIndex</dd>
+
+<dl>
+<dd>
+&nbsp;&nbsp; ofObject: message</dd>
+
+<dd>
+&nbsp;&nbsp; withValue: argumentArray.</dd>
+</dl>
+
+<dd>
+self transfer: argumentCount</dd>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; fromField: stackPointer - (argumentCount
+- 1)</dd>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ofObject: activeContext</dd>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; toField: 0</dd>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ofObject: argumentArray.</dd>
+
+<dd>
+self pop: argumentCount.</dd>
+
+<dd>
+self push: message.</dd>
+
+<dd>
+argumentCount := 1</dd>
+</dl>
+</dl>
+The following routine initializes the indices used to access fields of
+a <tt>Message</tt>.
+<dl>
+<dd>
+<b>initializeMessageIndices</b></dd>
+
+<dl>
+<dd>
+MessageSelectorIndex := 0.</dd>
+
+<dd>
+MessageArgumentsIndex := 1.</dd>
+
+<dd>
+MessageSize := 2</dd>
+</dl>
+</dl>
+The instance specification field of a class contains a <tt>SmallInteger</tt>
+pointer that encodes the following four pieces of information:
+<ol>
+<li>
+Whether the instances' fields contain object pointers or numerical values</li>
+
+<li>
+Whether the instances' fields are addressed in word or byte quantities</li>
+
+<li>
+Whether the instances have indexable fields beyond their fixed fields</li>
+
+<li>
+The number of fixed fields the instances have</li>
+</ol>
+<a href="../bluebook/bluebook_chapter27.html#Figure_27.8">Figure 27.8</a> shows how this information is encoded
+in the instance specification.
+<br><a name="Figure_27.8"></a>
+<center><table cellpadding="2" cellspacing="2">
+<tbody><tr>
+<td><img src="bluebook_chapter27_files/figure27_8.gif" height="85" width="439"></td>
+</tr>
+
+<tr>
+<td align="CENTER" valign="CENTER"><b>Figure 27.8</b></td>
+</tr>
+</tbody></table></center>
+The four pieces of information are not independent. If the instances' fields
+contain object pointers, they will be addressed in word quantities. If
+the instances' fields contain numerical values, they will have indexable
+fields and no fixed fields.
+<dl>
+<dd>
+<b>instanceSpecificationOf: classPointer</b></dd>
+
+<dl>
+<dd>
+^memory fetchPointer: InstanceSpecificationIndex</dd>
+
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp; ofObject: classPointer</dd>
+</dl>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>isPointers: classPointer</b></dd>
+
+<dl>
+<dd>
+| pointersFlag |</dd>
+
+<dd>
+pointersFlag := self extractBits: 0 to: 0</dd>
+
+<dl>
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; of: (self instanceSpecificationOf:
+classPointer).</dd>
+</dl>
+</dl>
+
+<dd>
+^pointersFlag = 1</dd>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>isWords: classPointer</b></dd>
+
+<dl>
+<dd>
+| wordsFlag |</dd>
+
+<dd>
+wordsFlag := self extractBits: 1 to: 1</dd>
+
+<dl>
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; of: (self instanceSpecificationOf: classPointer)</dd>
+</dl>
+</dl>
+
+<dd>
+^wordsFlag = 1</dd>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>isIndexable: classPointer</b></dd>
+
+<dl>
+<dd>
+| indexableFlag |</dd>
+
+<dd>
+indexableFlag := self extractBits: 2 to: 2</dd>
+
+<dl>
+<dl>
+<dl>
+<dd>
+&nbsp;of: (self instanceSpecificationOf: classPointer).</dd>
+</dl>
+</dl>
+</dl>
+
+<dd>
+^indexableFlag = 1</dd>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>fixedFieldsOf: classPointer</b></dd>
+
+<dl>
+<dd>
+^self extractBits: 4 to: 14</dd>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; of: (self instanceSpecificationOf:
+classPointer)</dd>
+</dl>
+</dl>
+Note: the instance specification of <tt>CompiledMethod</tt> does not accurately
+reflect the structure of its instances since <tt>CompiledMethods</tt> are
+not homogeneous. The instance specification says that the instances do
+not contain pointers and are addressed by bytes. This is true of the bytecode
+section of a <tt>CompiledMethod</tt> only. The storage manager needs to
+know that <tt>CompiledMethods</tt> are special and actually contain some
+pointers. For all other classes, the instance specification is accurate.
+<br>
+<hr size="1" width="100%">
+<center><font color="#3333FF">[<a href="../bluebook_imp_toc.html">TOC</a>]
+[<a href="../bluebook/bluebook_chapter26.html">26</a>] [<a href="../bluebook/bluebook_chapter27.html#top_of_27">27</a>]
+[<a href="../bluebook/bluebook_chapter28.html">28</a>] [<a href="../bluebook/bluebook_chapter29.html">29</a>]
+[<a href="../bluebook/bluebook_chapter30.html">30</a>]</font></center>
+
+
+</body></html>

@@ -1,0 +1,3407 @@
+<!DOCTYPE html PUBLIC "-//w3c//dtd html 4.0 transitional//en">
+<html><head>
+<!-- base href="http://users.ipa.net.wstub.archive.org/~dwighth/smalltalk/bluebook/bluebook_chapter30.html" -->
+
+   <meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+   <meta name="GENERATOR" content="Mozilla/4.5 [en] (WinNT; I) [Netscape]">
+   <title>Blue Book Chapter 30</title>
+</head>
+<body alink="#FF0000" bgcolor="#FFF7E1" link="#0000EE" text="#000000" vlink="#551A8B">
+
+<center><a name="top_of_30"></a><font color="#3333FF">[<a href="../bluebook_imp_toc.html">TOC</a>]
+[<a href="../bluebook/bluebook_chapter26.html">26</a>] [<a href="../bluebook/bluebook_chapter27.html">27</a>]
+[<a href="../bluebook/bluebook_chapter28.html">28</a>] [<a href="../bluebook/bluebook_chapter29.html">29</a>]
+</font><font color="#000000">30</font>
+<br>
+<hr size="1" width="100%"><font color="#000099"><font size="+4">30</font></font>
+<br><font color="#3333FF"><font size="+3">Formal Specification of the Object
+Memory</font></font>
+<hr size="1" width="100%"></center>
+
+<dl>
+<dl>
+<dl>
+<dd>
+<b><font color="#3333FF"><font size="+1"><a href="../bluebook/bluebook_chapter30.html#HeapStorage30">Heap Storage</a></font></font></b></dd>
+
+<dl>
+<dd>
+<i><font color="#000099"><a href="../bluebook/bluebook_chapter30.html#Compaction30">Compaction</a></font></i></dd>
+</dl>
+
+<dd>
+<b><font color="#3333FF"><font size="+1"><a href="../bluebook/bluebook_chapter30.html#TheObjectTable30">The
+Object Table</a></font></font></b></dd>
+
+<dl>
+<dd>
+<i><font color="#000099"><a href="../bluebook/bluebook_chapter30.html#ObjectPointers30">Object Pointers</a></font></i></dd>
+
+<dd>
+<i><font color="#000099"><a href="../bluebook/bluebook_chapter30.html#ObjectTableEntries30">Object Table Entries</a></font></i></dd>
+
+<dd>
+<i><font color="#000099"><a href="../bluebook/bluebook_chapter30.html#UnallocatedSpace30">Unallocated Space</a></font></i></dd>
+</dl>
+
+<dd>
+<b><font color="#3333FF"><font size="+1"><a href="../bluebook/bluebook_chapter30.html#AllocationAndDeallocation30">Allocation
+and Deallocation</a></font></font></b></dd>
+
+<dl>
+<dd>
+<i><font color="#000099"><a href="../bluebook/bluebook_chapter30.html#AnAllocationAlgorithm30">An Allocation
+Algorithm</a></font></i></dd>
+
+<dd>
+<i><font color="#000099"><a href="../bluebook/bluebook_chapter30.html#ADeallocationAlgorithm30">A Deallocation
+Algorithm</a></font></i></dd>
+
+<dd>
+<i><font color="#000099"><a href="../bluebook/bluebook_chapter30.html#ACompactionAlgorithm30">A Compaction
+Algorithm</a></font></i></dd>
+</dl>
+
+<dd>
+<b><font color="#3333FF"><font size="+1"><a href="../bluebook/bluebook_chapter30.html#GarbageCollection30">Garbage
+Collection</a></font></font></b></dd>
+
+<dl>
+<dd>
+<i><font color="#000099"><a href="../bluebook/bluebook_chapter30.html#ASimpleReferenceCountingCollector30">A
+Simple Reference-counting Collector</a></font></i></dd>
+
+<dd>
+<i><font color="#000099"><a href="../bluebook/bluebook_chapter30.html#ASpaceEfficientReferenceCountingCollector30">A
+Space-efficient Reference-counting Collector</a></font></i></dd>
+
+<dd>
+<i><font color="#000099"><a href="../bluebook/bluebook_chapter30.html#AMarkingCollector30">A Marking Collector</a></font></i></dd>
+</dl>
+
+<dd>
+<b><font color="#3333FF"><font size="+1"><a href="../bluebook/bluebook_chapter30.html#NonpointerObjects30">Nonpointer
+Objects</a></font></font></b></dd>
+
+<dl>
+<dd>
+<i><font color="#000099"><a href="../bluebook/bluebook_chapter30.html#CompiledMethods30">CompiledMethods</a></font></i></dd>
+</dl>
+
+<dd>
+<b><font color="#3333FF"><font size="+1"><a href="http://classic-web.archive.org/web/20070529045815/http://users.ipa.net/%7Edwighth/smalltalk/bluebook/bluebook_chapter30.html#InterfaceToTheBytecodeInterpreter30">Interface
+to the Bytecode Interpreter</a></font></font></b></dd>
+</dl>
+</dl>
+</dl>
+
+<hr size="1" width="100%">The two major components of any Smalltalk-80 implementation
+are the bytecode interpreter and the object memory. Chapters <a href="../bluebook/bluebook_chapter28.html">28</a>
+and <a href="../bluebook/bluebook_chapter29.html">29</a> described an implementation
+of the bytecode interpreter. This chapter describes an implementation of
+the object memory. The function of the object memory is to create, store,
+and destroy objects, and to provide access to their fields.
+<br>&nbsp;&nbsp;&nbsp; Memory-management systems fall into two major categories,
+<i>real-memory</i>
+implementations and <i>virtual-memory</i> implementations. In a real-memory
+implementation, all the objects in the environment reside in primary memory
+that is directly addressable by the program. In a virtual-memory implementation,
+objects reside in more than one level of a memory hierarchy and must be
+shuffled among the various levels during execution. This chapter describes
+the design of <tt>RealObjectMemory</tt>, an object memory for a real-memory
+Smalltalk-80.
+<br>&nbsp;&nbsp;&nbsp; Although Smalltalk can be implemented on computers
+of any word size, this presentation will be simplified by several assumptions
+in the standard algorithms. The routines of <tt>RealObjectMemory</tt> assume
+<ul>
+<li>
+that there are eight bits in a byte,</li>
+
+<li>
+that there are two bytes in a word,</li>
+
+<li>
+that the more significant byte of a word precedes the less significant
+byte, and</li>
+
+<li>
+that the target computer is word addressed and word indexed.</li>
+</ul>
+Moreover, the routines assume that the address space is partitioned into
+16 or fewer <i>segments</i> of 64K (65,536) words apiece. The standard
+algorithms can be systematically changed to adapt them to hardware with
+different properties. The routines of <tt>RealObjectMemory</tt> deal almost
+exclusively with 16-bit integers, as would a machine-language implementation.
+<br>&nbsp;&nbsp;&nbsp; To access locations in the address space of the
+host machine, machine language implementations use load and store instructions.
+In <tt>RealObjectMemory</tt>, the load and store instructions are symbolized
+by messages to an instance of <tt>RealWordMemory</tt> whose name is <tt>wordMemory</tt>.
+The protocol of <tt>RealWordMemory</tt> is shown below
+<dl>
+<dd>
+<tt>RealWordMemory</tt> instance protocol</dd>
+
+<dl>
+<dd>
+<b>segment: s word: w</b></dd>
+
+<dl>
+<dd>
+Return word <tt>w</tt> of segment <tt>s</tt>.</dd>
+</dl>
+
+<dd>
+<b>segment: s word: w put: value</b></dd>
+
+<dl>
+<dd>
+Store <tt>value</tt> into word <tt>w</tt> of segment <tt>s</tt>; return
+<tt>value</tt>.</dd>
+</dl>
+
+<dd>
+<b>segment: s word: w byte: byteNumber</b></dd>
+
+<dl>
+<dd>
+Return byte <tt>byteNumber</tt> of word <tt>w</tt> of segment <tt>s</tt>.</dd>
+</dl>
+
+<dd>
+<b>segment: s word: w byte: byteNumber put: value</b></dd>
+
+<dl>
+<dd>
+Store <tt>value</tt> into byte <tt>byteNumber</tt> of word <tt>w</tt> of
+segment
+<tt>s</tt>; return <tt>value</tt>.</dd>
+</dl>
+
+<dd>
+<b>segment: s word: w bits: firstBitIndex to: lastBitIndex</b></dd>
+
+<dl>
+<dd>
+Return bits <tt>firstBitIndex</tt> to <tt>lastBitIndex</tt> of word <tt>w</tt>
+of segment <tt>s</tt>.</dd>
+</dl>
+
+<dd>
+<b>segment: s word: w bits: firstBitIndex to: lastBitIndex put: value</b></dd>
+
+<dl>
+<dd>
+Store <tt>value</tt> into bits <tt>firstBitIndex</tt> to <tt>lastBitIndex</tt>
+of word <tt>w</tt> of segment <tt>s</tt>; return <tt>value</tt></dd>
+</dl>
+</dl>
+</dl>
+When it is necessary to distinguish the two bytes of a word, the left (more
+significant) byte will be referred to with the index 0 and the right (less
+significant) byte with the index 1. The most significant bit in a word
+will be referred to with the index 0 and the least significant with the
+index 15. Note that <tt>self</tt> is an instance of class<tt> RealObjectMemory</tt>
+in all routines of this chapter.
+<br>&nbsp;&nbsp;&nbsp; The most important thing about any implementation
+of the object memory is that it conform to the functional specification
+of the object memory interface given in <a href="../bluebook/bluebook_chapter27.html">Chapter
+27</a>. This chapter describes a range of possible implementations of that
+interface. In particular, simple versions of some routines are presented
+early in the chapter and refined versions are presented later as the need
+for those refinements becomes clear. These preliminary versions will be
+flagged by including the comment, <i><font color="#3333FF">"**Preliminary
+Version**"</font></i>, on the first line of the routine.
+<center>
+<hr size="1" width="80%"><a name="HeapStorage30"></a><b><font color="#3333FF"><font size="+2">Heap
+Storage</font></font></b>
+<hr size="1" width="80%"></center>
+In a real-memory implementation of Smalltalk, all objects are stored in
+an area called the <i>heap</i>. A new object is created by obtaining space
+to store its fields in a contiguous series of words in the heap. An object
+is destroyed by releasing the heap space it occupied. The format of an
+allocated object in the heap is shown in <a href="../bluebook/bluebook_chapter30.html#Figure_30.1">Figure
+30.1</a>. The actual data of the object are preceded by a two-word <i>header</i>.
+The size field of the header indicates the number of words of heap that
+the object occupies, including the header. It is an unsigned 16-bit number,
+and can range from 2 up to 65,535.
+<br><a name="Figure_30.1"></a>
+<center><table cellpadding="2" cellspacing="2">
+<tbody><tr>
+<td><img src="bluebook_chapter30_files/figure30_1.gif" height="249" width="253"></td>
+</tr>
+
+<tr>
+<td align="CENTER" valign="CENTER"><b>Figure 30.1</b></td>
+</tr>
+</tbody></table></center>
+When memory is segmented, it is usually convenient for a Smalltalk-80 implementation
+to divide the heap into <i>heap segments</i>, each in a different memory
+segment. As stated earlier, the routines in this chapter assume that the
+target computer is segmented into address spaces of 65,536 words.
+<br>&nbsp;
+<table border="0" cellpadding="2" cellspacing="2" width="100%">
+<caption><b>Heap Related Constants</b></caption>
+
+<tbody><tr>
+<td align="LEFT" width="16%"><tt>HeapSegmentCount</tt></td>
+
+<td>The number of heap segments used in the implementation.</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"><tt>FirstHeapSegment</tt></td>
+
+<td>The index of the first memory segment used to store the heap.</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"><tt>LastHeapSegment</tt></td>
+
+<td align="LEFT" valign="TOP">The index of the last memory segment used to
+store the heap (<tt>FirstHeapSegment + HeapSegmentCount - 1</tt>).</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"><tt>HeapSpaceStop</tt></td>
+
+<td>The address of the last location used in each heap segment.</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"><tt>HeaderSize</tt></td>
+
+<td align="LEFT" valign="TOP">The number of words in an object header (2).
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+</tr>
+</tbody></table>
+<a name="Compaction30"></a><b><i><font color="#000099"><font size="+1">Compaction</font></font></i></b>
+<br>
+<hr align="LEFT" noshade="noshade" size="1" width="60%">Suppose for a moment that an
+object once allocated never changes its location in the heap. To allocate
+a new object, a space between existing objects must be found that is large
+enough to hold the new object. After a while, the memory "fragments" or
+"checkerboards." That is, an allocation request is bound to arrive for
+an amount of space smaller than the total available memory but larger than
+any of the disjoint pieces (<a href="../bluebook/bluebook_chapter30.html#Figure_30.2">Figure 30.2a</a>). This
+can occur even if there is a large amount of available space and a relatively
+small allocation request.
+<br>&nbsp;&nbsp;&nbsp; Fragmentation cannot be tolerated in an interactive
+system that is expected to preserve a dynamic environment for hundreds
+of hours or more without reinitialization. Therefore when memory fragments,
+it must be <i>compacted</i>. Memory is compacted by moving all objects
+that are still in use towards one end of the heap, squeezing out all the
+free space between them and leaving one large unallocated block at the
+other end (see
+<a href="../bluebook/bluebook_chapter30.html#Figure_30.2">Figure 30.2b</a>).
+<br>&nbsp;&nbsp;&nbsp; Each heap segment is compacted separately. Even
+on a linearly-addressed machine it is preferable to segment a large heap
+to reduce the duration of each compaction.
+<br><a name="Figure_30.2"></a>
+<center><table border="0" cellpadding="2" cellspacing="2">
+<tbody><tr>
+<td><img src="bluebook_chapter30_files/figure30_2.gif" height="420" width="308"></td>
+</tr>
+
+<tr>
+<td align="CENTER" valign="CENTER"><b>Figure 30.2</b></td>
+</tr>
+</tbody></table></center>
+
+<center>
+<hr size="1" width="80%"><a name="TheObjectTable30"></a><b><font color="#3333FF"><font size="+2">The
+Object Table</font></font></b>
+<hr size="1" width="80%"></center>
+When an object is moved during compaction, all pointers to its heap memory
+must be updated. If many other objects contain pointers directly to the
+old location, then it is time-consuming on a sequential computer to find
+and update those references to point to the new location. Therefore to
+make the pointer update inexpensive, only one pointer to an object's heap
+memory is allowed. That pointer is stored in a table called the <i>object
+table</i>. All references to an object must be indirected through the object
+table. Thus, the object pointers found in Smalltalk objects are really
+indices into the object table, in which pointers into the heap are in turn
+found (see <a href="../bluebook/bluebook_chapter30.html#Figure_30.3">Figure 30.3</a>).
+<br><a name="Figure_30.3"></a>
+<center><table border="0" cellpadding="2" cellspacing="2">
+<tbody><tr>
+<td align="CENTER" valign="CENTER"><img src="bluebook_chapter30_files/figure30_3.gif" height="285" width="495"></td>
+</tr>
+
+<tr>
+<td align="CENTER" valign="CENTER"><b>Figure 30.3</b></td>
+</tr>
+</tbody></table></center>
+&nbsp;&nbsp;&nbsp; Indirection through the object table provides another
+benefit. The number of objects of average size Z addressable by an n-bit
+pointer is on the order of 2<sup>n</sup> instead of 2<sup>n</sup>/Z. In
+our experience, objects average 10 words in size (Z~10), so a significant
+gain in address space can be realized by indirection.
+<br>&nbsp;&nbsp;&nbsp; Throughout the object table, abandoned entries can
+occur that are not associated with any space on the heap. These entries
+are called <i>free entries</i> and their object pointers are called <i>free
+pointers</i>. It is easy to recycle a free entry, because all object table
+entries are the same size. Compaction of the object table is difficult
+and generally unnecessary, so it is not supported.
+<br>&nbsp;&nbsp;&nbsp; Although the heap is segmented, the object table
+is stored in a single segment so that an object pointer can be 16 bits
+and thus fit in one word. Consequently, the number of objects that can
+be addressed in real memory is limited to the number of object table entries
+that can fit in one segment. A common arrangement is for each object table
+entry to occupy two words and for the entire table to occupy 64K words
+or less, yielding a maximum capacity of 32K objects.
+<p><a name="ObjectPointers30"></a><b><i><font color="#000099"><font size="+1">Object
+Pointers</font></font></i></b>
+<br>
+</p><hr align="LEFT" noshade="noshade" size="1" width="60%">An object pointer occupies 16
+bits, apportioned as in <a href="../bluebook/bluebook_chapter30.html#Figure_30.4">Figure 30.4</a>.
+<br><a name="Figure_30.4"></a>
+<center><table border="0" cellpadding="2" cellspacing="2">
+<tbody><tr>
+<td><img src="bluebook_chapter30_files/figure30_4.gif" height="99" width="384"></td>
+</tr>
+
+<tr>
+<td align="CENTER" valign="CENTER"><b>Figure 30.4</b></td>
+</tr>
+</tbody></table></center>
+When the low-order bit of the object pointer is 0, the first 15 bits are
+an index into the object table. Up to 2<sup>15</sup> (32K) objects can
+be addressed. When the low-order bit of the object pointer is 1, the first
+15 bits are an immediate signed integer, and no additional space in the
+object table or the heap is utilized. The benefit of giving special treatment
+to integers in the range ±2<sup>14</sup> is that they come and go
+with high frequency during arithmetic and many other operations. The cost
+of their efficient representation is the number of tests the interpreter
+must perform to distinguish object pointers of small integers from object
+pointers of other objects.
+<br>&nbsp;&nbsp;&nbsp; The <tt>isIntegerObject:</tt> routine tests the
+low order bit of <tt>objectPointer</tt> to determine whether the rest of
+the pointer is an immediate integer value rather than an object table index.
+<dl>
+<dd>
+<b>isIntegerObject: objectPointer</b></dd>
+
+<dl>
+<dd>
+^(objectPointer bitAnd: 1) = 1</dd>
+</dl>
+</dl>
+Every other object-access routine requires that its object pointer argument
+really be an object table index. The <tt>cantBeIntegerObject:</tt> routine
+is used to trap erroneous calls, If the hardware, the bytecode interpreter,
+and the object memory manager are bug free, then this error condition is
+never encountered.
+<dl>
+<dd>
+<b>cantBeIntegerObject: objectPointer</b></dd>
+
+<dl>
+<dd>
+(self isIntegerObject: objectPointer)</dd>
+
+<dl>
+<dd>
+ifTrue: [Sensor notify: 'A small integer has no object table entry']</dd>
+</dl>
+</dl>
+</dl>
+<a name="ObjectTableEntries30"></a><b><i><font color="#000099"><font size="+1">Object
+Table Entries</font></font></i></b>
+<br>
+<hr align="LEFT" noshade="noshade" size="1" width="60%">The format of an object table
+entry
+is shown in <a href="../bluebook/bluebook_chapter30.html#Figure_30.5">Figure 30.5</a>. If the free entry bit
+is on, then the entry is free. If the free entry bit is off, then the four
+segment bits select a heap segment and the 16 location bits locate the
+beginning of the space in that segment that is owned by the object table
+entry. The count field, the odd length bit (O), and the pointer fields
+bit will be explained later in the chapter.
+<br><a name="Figure_30.5"></a>
+<center><table cellpadding="2" cellspacing="2">
+<tbody><tr>
+<td><img src="bluebook_chapter30_files/figure30_5.gif" height="97" width="383"></td>
+</tr>
+
+<tr>
+<td align="CENTER" valign="CENTER"><b>Figure 30.5</b></td>
+</tr>
+</tbody></table></center>
+
+<table border="0" cellpadding="2" cellspacing="2" width="100%">
+<caption><b>Object Table Related Constants</b></caption>
+
+<tbody><tr>
+<td align="LEFT" valign="TOP" width="16%"><tt>ObjectTableSegment</tt></td>
+
+<td>The number of the memory segment containing the object table.</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"><tt>ObjectTableStart</tt></td>
+
+<td>The location in <tt>ObjectTableSegment</tt> of the base of the object
+table.</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"><tt>ObjectTableSize</tt></td>
+
+<td>The number of words in the object table (an even number &lt;= 64K).</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"><tt>HugeSize</tt></td>
+
+<td>The smallest number that is too large to represent in an eight-bit
+count field; that is, 256.</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP">
+<dl><tt>NilPointer</tt></dl>
+</td>
+
+<td align="LEFT" valign="TOP">The object table index of the object <tt>nil.</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td>
+</tr>
+</tbody></table>
+The following set of routines accesses the first word of object table entries
+in four different ways: loading the whole word, storing the whole word,
+loading a bit field, and storing a bit field. These routines in turn utilize
+routines of <tt>wordMemory</tt>, an instance of <tt>RealWordMemory</tt>.
+They assume that <tt>objectPointer</tt> is expressed as an even word offset
+relative to <tt>ObjectTableStart</tt>, the base of the object table in
+segment <tt>ObjectTableSegment</tt>. Note that <tt>ot</tt> is an abbreviation
+for "object table."
+<dl>
+<dd>
+<b>ot: objectPointer</b></dd>
+
+<dl>
+<dd>
+self cantBeIntegerObject: objectPointer.</dd>
+
+<dd>
+^wordMemory segment: ObjectTableSegment</dd>
+
+<dl>
+<dl>
+<dd>
+word: ObjectTableStart + objectPointer</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>ot: objectPointer put: value</b></dd>
+
+<dl>
+<dd>
+self cantBeIntegerObject: objectPointer.</dd>
+
+<dd>
+^wordMemory segment: ObjectTableSegment</dd>
+
+<dl>
+<dl>
+<dd>
+word: ObjectTableStart + objectPointer</dd>
+
+<dd>
+put: value</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>ot: objectPointer bits: firstBitIndex to: lastBitIndex</b></dd>
+
+<dl>
+<dd>
+self cantBeIntegerObject: objectPointer.</dd>
+
+<dd>
+^wordMemory segment: ObjectTableSegment</dd>
+
+<dl>
+<dl>
+<dd>
+word: ObjectTableStart + objectPointer</dd>
+
+<dd>
+bits: firstBitIndex</dd>
+
+<dd>
+to: lastBitIndex</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>ot: objectPointer bits: firstBitIndex to: lastBitIndex put: value</b></dd>
+
+<dl>
+<dd>
+self cantBeIntegerObject: objectPointer.</dd>
+
+<dd>
+^wordMemory segment: ObjectTableSegment</dd>
+
+<dl>
+<dl>
+<dd>
+word: ObjectTableStart + objectPointer</dd>
+
+<dd>
+bits: firstBitIndex</dd>
+
+<dd>
+to: lastBitIndex</dd>
+
+<dd>
+put: value</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+The following 12 object-access subroutines load or store the various fields
+of the object table entry of <tt>objectPointer</tt>.
+<dl>
+<dd>
+<b>countBitsOf: objectPointer</b></dd>
+
+<dl>
+<dd>
+^self ot: objectPointer bits: 0 to: 7</dd>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>countBitsOf: objectPointer put: value</b></dd>
+
+<dl>
+<dd>
+^self ot: objectPointer bits: 0 to: 7 put: value</dd>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>oddBitOf: objectPointer</b></dd>
+
+<dl>
+<dd>
+^self ot: objectPointer bits: 8 to: 8</dd>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>oddBitOf: objectPointer put: value</b></dd>
+
+<dl>
+<dd>
+^self ot: objectPointer bits: 8 to: 8 put: value</dd>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>pointerBitOf: objectPointer</b></dd>
+
+<dl>
+<dd>
+^self ot: objectPointer bits: 9 to: 9</dd>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>pointerBitOf: objectPointer put: value</b></dd>
+
+<dl>
+<dd>
+^self ot: objectPointer bits: 9 to: 9 put: value</dd>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>freeBitOf: objectPointer</b></dd>
+
+<dl>
+<dd>
+^self ot: objectPointer bits: 10 to: 10</dd>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>freeBitOf: objectPointer put: value</b></dd>
+
+<dl>
+<dd>
+^self ot: objectPointer bits: 10 to: 10 put: value</dd>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>segmentBitsOf: objectPointer</b></dd>
+
+<dl>
+<dd>
+^self ot: objectPointer bits: 12 to: 15</dd>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>segmentBitsOf: objectPointer put: value</b></dd>
+
+<dl>
+<dd>
+^self ot: objectPointer bits: 12 to: 15 put: value</dd>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>locationBitsOf: objectPointer</b></dd>
+
+<dl>
+<dd>
+self cantBeIntegerObject: objectPointer.</dd>
+
+<dd>
+^wordMemory segment: ObjectTableSegment</dd>
+
+<dl>
+<dl>
+<dd>
+word: ObjectTableStart + objectPointer + 1</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>locationBitsOf: objectPointer put: value</b></dd>
+
+<dl>
+<dd>
+self cantBeIntegerObject: objectPointer.</dd>
+
+<dd>
+^wordMemory segment: ObjectTableSegment</dd>
+
+<dl>
+<dl>
+<dd>
+word: ObjectTableStart + objectPointer + 1</dd>
+
+<dd>
+put: value</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+For objects that occupy a chunk of heap storage (those whose free bit is
+0), the following four object-access subroutines load or store words or
+bytes from the chunk.
+<dl>
+<dd>
+<b>heapChunkOf: objectPointer word: offset</b></dd>
+
+<dl>
+<dd>
+^wordMemory segment: (self segmentBitsOf: objectPointer)</dd>
+
+<dl>
+<dl>
+<dd>
+word: ((self locationBitsOf: objectPointer) + offset)</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>heapChunkOf: objectPointer word: offset put: value</b></dd>
+
+<dl>
+<dd>
+^wordMemory segment: (self segmentBitsOf: objectPointer)</dd>
+
+<dl>
+<dl>
+<dd>
+word: ((self locationBitsOf: objectPointer) + offset)</dd>
+
+<dd>
+put: value</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>heapChunkOf: objectPointer byte: offset</b></dd>
+
+<dl>
+<dd>
+^wordMemory segment: (self segmentBitsOf: objectPointer)</dd>
+
+<dl>
+<dl>
+<dd>
+word: ((self locationBitsOf: objectPointer) + (offset // 2))</dd>
+
+<dd>
+byte: (offset \\ 2)</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>heapChunkOf: objectPointer byte: offset put: value</b></dd>
+
+<dl>
+<dd>
+^wordMemory segment: (self segmentBitsOf: objectPointer)</dd>
+
+<dl>
+<dl>
+<dd>
+word: ((self locationBitsOf: objectPointer) + (offset // 2))</dd>
+
+<dd>
+byte: (offset \\ 2)</dd>
+
+<dd>
+put: value</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+The next four object-access subroutines are more specialized in that they
+load or store words of the object header.
+<dl>
+<dd>
+<b>sizeBitsOf: objectPointer</b></dd>
+
+<dl>
+<dd>
+^self heapChunkOf: objectPointer word: 0</dd>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>sizeBitsOf: objectPointer put: value</b></dd>
+
+<dl>
+<dd>
+^self heapChunkOf: objectPointer word: 0 put: value</dd>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>classBitsOf: objectPointer</b></dd>
+
+<dl>
+<dd>
+^self heapChunkOf: objectPointer word: 1</dd>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>classBitsOf: objectPointer put: value</b></dd>
+
+<dl>
+<dd>
+^self heapChunkOf: objectPointer word: 1 put: value</dd>
+</dl>
+</dl>
+The remaining two object-access subroutines are functionally identical
+to <tt>sizeBitsOf:</tt> in the versions shown below. Later in this chapter,
+refinements to the object-memory manager will require new versions of both
+of these subroutines that will return something different from the object
+size in certain cases. For that reason, these methods are marked "preliminary."
+<dl>
+<dd>
+<b>lastPointerOf: objectPointer</b> <i><font color="#3333FF">"**Preliminary
+Version**"</font></i></dd>
+
+<dl>
+<dd>
+^self sizeBitsOf: objectPointer</dd>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>spaceOccupiedBy: objectPointer </b><i><font color="#3333FF">"**Preliminary
+Version**"</font></i></dd>
+
+<dl>
+<dd>
+^self sizeBitsOf: objectPointer</dd>
+</dl>
+</dl>
+<a name="UnallocatedSpace30"></a><b><i><font color="#000099"><font size="+1">Unallocated
+Space</font></font></i></b>
+<br>
+<hr align="LEFT" noshade="noshade" size="1" width="60%">All free entries in the object
+table are kept on a linked list headed at the location named freePointerList.
+The link from one free entry to the next is an object pointer in its location
+field (see <a href="../bluebook/bluebook_chapter30.html#Figure_30.6">Figure 30.6</a>).
+<br><a name="Figure_30.6"></a>
+<center><table cellpadding="2" cellspacing="2">
+<tbody><tr>
+<td><img src="bluebook_chapter30_files/figure30_6.gif" height="275" width="460"></td>
+</tr>
+
+<tr>
+<td align="CENTER" valign="CENTER"><b>Figure 30.6</b></td>
+</tr>
+</tbody></table></center>
+Unallocated space in the heap is grouped into <i>free chunks</i> (contiguous
+blocks) of assorted sizes and each of those free chunks is assigned an
+object table entry. Free chunks are linked together on lists, each containing
+chunks of the same size. The link from one free chunk to the next is in
+its class field (<a href="../bluebook/bluebook_chapter30.html#Figure_30.7">Figure 30.7</a>). To keep the table
+of list heads small, all free chunks bigger than 20 words are linked onto
+a single list.
+<br>&nbsp;
+<table border="0" cellpadding="2" cellspacing="2" width="100%">
+<caption><b>Free Space Related Constants</b></caption>
+
+<tbody><tr>
+<td align="LEFT" valign="TOP" width="16%"><tt>FreePointerList</tt></td>
+
+<td>The location of the head of the linked list of free object table entries.</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"><tt>BigSize</tt></td>
+
+<td>The smallest size of chunk that is not stored on a list whose chunks
+are the same size. (The index of the last free chunk list).</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"><tt>FirstFreeChunkList</tt></td>
+
+<td>The location of the head of the linked list of free chunks of size
+zero. Lists for chunks of larger sizes are stored in contiguous locations
+following <tt>FirstFreeChunkList</tt>. Note that the lists at <tt>FirstFreeChunkList</tt>
+and <tt>FirstFreeChunkList</tt> <tt>+</tt> <tt>1</tt> will always be empty
+since all chunks are at least two words long.</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"><tt>LastFreeChunkList</tt></td>
+
+<td>The location of the head of the linked list of free chunks of size
+<tt>BigSize</tt>
+or larger.</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP">
+<dl><tt>NonPointer</tt></dl>
+</td>
+
+<td align="LEFT" valign="TOP">Any sixteen-bit value that cannot be an object
+table index, e.g., 2<sup>16</sup> - 1.
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+</tr>
+</tbody></table>
+A separate set of free chunk lists is maintained for each heap segment,
+but only one free pointer list is maintained for the object table. Note
+that the object table entry associated with a "free chunk" is not a "free
+entry." It is not on the free pointer list, and its free entry bit is not
+set. The way a free chunk is distinguished from an allocated chunk is by
+setting the count field of the object table entry to zero for a free chunk
+and to nonzero for an allocated chunk.
+<br><a name="Figure_30.7"></a>
+<center><table cellpadding="2" cellspacing="2">
+<tbody><tr>
+<td><img src="bluebook_chapter30_files/figure30_7.gif" height="434" width="529"></td>
+</tr>
+
+<tr>
+<td align="CENTER" valign="CENTER"><b>Figure 30.7</b></td>
+</tr>
+</tbody></table></center>
+The following four routines manage the free pointer list headed at <tt>FreePointerList</tt>
+in segment <tt>ObjectTableSegment</tt>. The first two routines simply load
+and store the list head.
+<dl>
+<dd>
+<b>headOfFreePointerList</b></dd>
+
+<dl>
+<dd>
+^wordMemory segment: ObjectTableSegment</dd>
+
+<dl>
+<dl>
+<dd>
+word: FreePointerList</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>headOfFreePointerListPut: objectPointer</b></dd>
+
+<dl>
+<dd>
+^wordMemory segment: ObjectTableSegment</dd>
+
+<dl>
+<dl>
+<dd>
+word: FreePointerList</dd>
+
+<dd>
+put: objectPointer</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+The routine <tt>toFreePointerListAdd:</tt> adds a free entry to the head
+of the list.
+<dl>
+<dd>
+<b>toFreePointerListAdd: objectPointer</b></dd>
+
+<dl>
+<dd>
+self locationBitsOf: objectPointer</dd>
+
+<dl>
+<dd>
+put: (self headOfFreePointerList).</dd>
+</dl>
+
+<dd>
+self headOfFreePointerListPut: objectPointer</dd>
+</dl>
+</dl>
+The routine <tt>removeFromFreePointerList</tt> removes the first entry
+from the list and returns it; if the list was empty, it returns <tt>nil</tt>.
+The distinguished value <tt>NonPointer</tt> signifies the end of a linked
+list. A good value for <tt>NonPointer</tt> is 2<sup>16</sup> - 1, a value
+that is easily detected on most computers and that cannot be confused with
+an actual object table entry address because it is an odd number.
+<dl>
+<dd>
+<b>removeFromFreePointerList</b></dd>
+
+<dl>
+<dd>
+| objectPointer |</dd>
+
+<dd>
+objectPointer := self headOfFreePointerList.</dd>
+
+<dd>
+objectPointer = NonPointer ifTrue: [^nil].</dd>
+
+<dd>
+self headOfFreePointerListPut: (self locationBitsOf: objectPointer).</dd>
+
+<dd>
+^objectPointer</dd>
+</dl>
+</dl>
+The following routines manage the free-chunk lists headed at <tt>FirstFreeChunkList
++ 2</tt> through <tt>LastFreeChunkList</tt> of each heap segment. Their
+behavior is exactly analogous to that of the routines above. The first
+three routines work in the segment specified or implied by their second
+parameter. The fourth routine works in the segment specified by the register
+<tt>currentSegment</tt>.
+<dl>
+<dd>
+<b>headOfFreeChunkList: size inSegment: segment</b></dd>
+
+<dl>
+<dd>
+^wordMemory segment: segment</dd>
+
+<dl>
+<dl>
+<dd>
+word: FirstFreeChunkList + size</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>headOfFreeChunkList: size inSegment: segment put: objectPointer</b></dd>
+
+<dl>
+<dd>
+^wordMemory segment: segment</dd>
+
+<dl>
+<dl>
+<dd>
+word: FirstFreeChunkList + size</dd>
+
+<dd>
+put: objectPointer</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>toFreeChunkList: size add: objectPointer</b></dd>
+
+<dl>
+<dd>
+| segment |</dd>
+
+<dd>
+segment := self segmentBitsOf: objectPointer.</dd>
+
+<dd>
+self classBitsOf: objectPointer</dd>
+
+<dl>
+<dd>
+put: (self headOfFreeChunkList: size</dd>
+
+<dl>
+<dl>
+<dd>
+inSegment: segment).</dd>
+</dl>
+</dl>
+</dl>
+
+<dd>
+self headOfFreeChunkList: size</dd>
+
+<dl>
+<dd>
+inSegment: segment</dd>
+
+<dd>
+put: objectPointer</dd>
+</dl>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>removeFromFreeChunkList: size</b></dd>
+
+<dl>
+<dd>
+| objectPointer secondChunk |</dd>
+
+<dd>
+objectPointer := self headOfFreeChunkList: size</dd>
+
+<dl>
+<dl>
+<dl>
+<dd>
+inSegment: currentSegment.</dd>
+</dl>
+</dl>
+</dl>
+
+<dd>
+objectPointer = NonPointer ifTrue: [^nil].</dd>
+
+<dd>
+secondChunk := self classBitsOf: objectPointer.</dd>
+
+<dd>
+self headOfFreeChunkList: size</dd>
+
+<dl>
+<dd>
+inSegment: currentSegment</dd>
+
+<dd>
+put: secondChunk.</dd>
+</dl>
+
+<dd>
+^objectPointer</dd>
+</dl>
+</dl>
+The routine <tt>resetFreeChunkList:inSegment:</tt> resets the specified
+free-chunk list to an empty list.
+<dl>
+<dd>
+<b>resetFreeChunkList: size inSegment: segment</b></dd>
+
+<dl>
+<dd>
+self headOfFreeChunkList: size</dd>
+
+<dl>
+<dd>
+inSegment: segment</dd>
+
+<dd>
+put: NonPointer</dd>
+</dl>
+</dl>
+</dl>
+
+<center>
+<hr size="1" width="80%"><a name="AllocationAndDeallocation30"></a><b><font color="#3333FF"><font size="+2">Allocation
+and Deallocation</font></font></b>
+<hr size="1" width="80%"></center>
+To allocate an object, an entry is obtained from the object table and sufficient
+space for the header and data is obtained from some heap segment. The heap
+segment in which space is found is called the <i>current segment</i>. It
+becomes the first segment in which to look for space to allocate the next
+object. The only register required by the object memory holds the index
+of the current segment.
+<br>&nbsp;
+<table border="0" cellpadding="2" cellspacing="2" width="100%">
+<caption><b>Registers of the Object Memory</b></caption>
+
+<tbody><tr>
+<td align="LEFT" valign="TOP" width="16%">
+<dl><tt>currentSegment</tt></dl>
+</td>
+
+<td align="LEFT" valign="TOP">The index of the heap segment currently being
+used for allocation.
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+</tr>
+</tbody></table>
+To allocate a "large" object requiring <tt>n</tt> words of heap space (<tt>n
+&gt;= BigSize</tt>), the list beginning at <tt>LastFreeChunkList</tt> in the
+current segment is searched for a free chunk whose size is either <tt>n</tt>
+words or at least<tt> n + headerSize </tt>words. If the free chunk found
+is larger than <tt>n</tt> words, it is <i>subdivided</i> and only <tt>n</tt>
+of the words are used to satisfy the allocation request.
+<br>&nbsp;&nbsp;&nbsp; To allocate a "small" object requiring <tt>n</tt>
+words of heap space (<tt>headerSize &lt;= n &lt; BigSize</tt>), the list
+beginning at<tt> freeChunkLists + n </tt>is searched. If the list is nonempty,
+its first free chunk is removed and used for the new object. If the list
+is empty, the above algorithm for "large" objects is used.
+<br>&nbsp;&nbsp;&nbsp; If no chunk of sufficient size is found in the current
+segment, then the next segment is made current and the search continues
+there. The new current segment is compacted first to improve the chances
+of finding sufficient space. In a compacted segment, all the allocated
+objects are at one end and the (presumably large) space at the other end
+is all in one large chunk, the sole member of the list <tt>LastFreeChunkLists</tt>.
+If enough space is not found in any segment, execution is halted.
+<br>&nbsp;&nbsp;&nbsp; When an object is deallocated, its space is recycled
+on the list of free chunks of the appropriate size. However, to simplify
+the presentation in this chapter, the standard algorithms leave the unused
+part of any subdivided chunk on the list of big free chunks even if that
+part is small in size.
+<p><a name="AnAllocationAlgorithm30"></a><b><i><font color="#000099"><font size="+1">An
+Allocation Algorithm</font></font></i></b>
+<br>
+</p><hr align="LEFT" noshade="noshade" size="1" width="60%">The<tt> allocate:class:</tt>
+routine is presented below as an example of a simple allocation routine.
+It takes as parameters the size of the desired chunk (in words, including
+header) and the class of the object that chunk will represent. The actual
+allocation routine takes several other parameters and so the<tt> allocate:class:</tt>
+routine will be flagged as preliminary. A more complete routine,<tt> allocate:extra:class:</tt>,
+is presented in a later section and the actual routine used in the implementation,<tt>
+allocate:odd:pointer:extra:class:</tt>, is presented after that.
+<dl>
+<dd>
+<b>allocate: size class: classPointer</b> <i><font color="#3333FF">"**Preliminary
+Version**"</font></i></dd>
+
+<dl>
+<dd>
+| objectPointer |</dd>
+
+<dd>
+objectPointer := self allocateChunk: size. <i><font color="#993366">"actually
+allocate"</font></i></dd>
+
+<dd>
+self classBitsOf: objectPointer put: classPointer. <i><font color="#993366">"fill
+in class"</font></i></dd>
+
+<dd>
+<i><font color="#993366">"initialize all fields to the object table index
+of the object nil"</font></i></dd>
+
+<dd>
+(headerSize to: size - 1) do:</dd>
+
+<dl>
+<dd>
+[:i | self heapChunkOf: objectPointer word: i put: NilPointer].</dd>
+</dl>
+
+<dd>
+self sizeBitsOf: objectPointer put: size.</dd>
+
+<dd>
+<i><font color="#993366">"return the new object's pointer"</font></i></dd>
+
+<dd>
+^objectPointer</dd>
+</dl>
+</dl>
+The routine <tt>allocateChunk:</tt> either succeeds in its allocation task,
+or it reports an unrecoverable error. It uses a subroutine,<tt> attemptToAllocateChunk:</tt>,
+that either completes the job or returns <tt>nil</tt> if no space can be
+found.
+<dl>
+<dd>
+<b>allocateChunk: size</b> <i><font color="#3333FF">"**Preliminary Version**"</font></i></dd>
+
+<dl>
+<dd>
+| objectPointer |</dd>
+
+<dd>
+objectPointer := self attemptToAllocateChunk: size.</dd>
+
+<dd>
+objectPointer isNil ifFalse: [^objectPointer].</dd>
+
+<dd>
+^self error: 'Out of memory'</dd>
+</dl>
+</dl>
+The <tt>attemptToAllocateChunk:</tt> routine first tries to allocate in
+<tt>currentSegment</tt>,
+the segment currently targeted for allocations. It does so using the subroutine<tt>
+attemptToAllocateChunkInCurrentSegment:</tt>. If the subroutine fails (returns
+<tt>nil</tt>),
+then the routine compacts the next segment and retries the allocation there.
+This procedure continues until the original segment has been compacted
+and searched. If no space can be found anywhere, the routine returns <tt>nil</tt>.
+Note that it uses implementation-dependent constants:
+<tt>HeapSegmentCount</tt>,
+<tt>FirstHeapSegment</tt>,
+and <tt>LastHeapSegment</tt>.
+<dl>
+<dd>
+<b>attemptToAllocateChunk: size</b></dd>
+
+<dl>
+<dd>
+| objectPointer |</dd>
+
+<dd>
+objectPointer := self attemptToAllocateChunkInCurrentSegment: size.</dd>
+
+<dd>
+objectPointer isNil ifFalse: [^objectPointer].</dd>
+
+<dd>
+1 to: HeapSegmentCount do:</dd>
+
+<dl>
+<dd>
+[:i |</dd>
+
+<dd>
+currentSegment := currentSegment + 1.</dd>
+
+<dd>
+currentSegment &gt; LastHeapSegment</dd>
+
+<dl>
+<dd>
+ifTrue: [currentSegment := FirstHeapSegment].</dd>
+</dl>
+
+<dd>
+self compactCurrentSegment.</dd>
+
+<dd>
+objectPointer := self attemptToAllocateChunkInCurrentSegment: size.</dd>
+
+<dd>
+objectPointer isNil ifFalse: [^objectPointer]].</dd>
+</dl>
+
+<dd>
+^nil</dd>
+</dl>
+</dl>
+The <tt>attemptToAllocateChunkInCurrentSegment:</tt> routine searches the
+current heap segment's free-chunk lists for the first chunk that is the
+right size or that can be subdivided to yield a chunk of the right size.
+Because most objects are smaller than <tt>BigSize</tt> and most allocation
+requests can be satisfied by recycling deallocated objects of the desired
+size, most allocations execute only the first four lines of the routine.
+<dl>
+<dd>
+<b>attemptToAllocateChunkInCurrentSegment: size</b></dd>
+
+<dl>
+<dd>
+| objectPointer predecessor next availableSize excessSize newPointer |</dd>
+
+<dd>
+objectPointer := nil.</dd>
+
+<dd>
+size &lt; BigSize</dd>
+
+<dl>
+<dd>
+ifTrue: [objectPointer := self removeFromFreeChunkList: size].</dd>
+</dl>
+
+<dd>
+objectPointer notNil</dd>
+
+<dl>
+<dd>
+ifTrue: [^objectPointer]. <i><font color="#993366">"small chunk of exact
+size handy so use it"</font></i></dd>
+</dl>
+
+<dd>
+predecessor := NonPointer. <i><font color="#993366">"remember predecessor
+of chunk under consideration"</font></i></dd>
+
+<dd>
+objectPointer := self headOfFreeChunkList: BigSize</dd>
+
+<dl>
+<dl>
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp; inSegment: currentSegment.</dd>
+</dl>
+</dl>
+</dl>
+
+<dd>
+<i><font color="#993366">"the search loop stops when the end of the linked
+list is encountered"</font></i></dd>
+
+<dd>
+[objectPointer = NonPointer] whileFalse:</dd>
+
+<dl>
+<dd>
+[availableSize := self sizeBitsOf: objectPointer.</dd>
+
+<dd>
+availableSize = size</dd>
+
+<dl>
+<dd>
+ifTrue: <i><font color="#993366">"exact fit -- remove from free chunk list
+and return"</font></i></dd>
+
+<dl>
+<dd>
+[next := self classBitsOf: objectPointer. <i><font color="#993366">"the
+link to the next chunk"</font></i></dd>
+
+<dd>
+predecessor = NonPointer</dd>
+
+<dl>
+<dd>
+ifTrue: <i><font color="#993366">"it was the head of the list; make the
+next item the head"</font></i></dd>
+
+<dl>
+<dd>
+[self headOfFreeChunkList: BigSize</dd>
+
+<dl>
+<dd>
+inSegment: currentSegment</dd>
+
+<dd>
+put: next]</dd>
+</dl>
+</dl>
+
+<dd>
+ifFalse: <i><font color="#993366">"it was between two chunks; link them
+together"</font></i></dd>
+
+<dl>
+<dd>
+[self classBitsOf: predecessor</dd>
+
+<dl>
+<dd>
+put: next].</dd>
+</dl>
+</dl>
+</dl>
+
+<dd>
+^objectPointer].</dd>
+</dl>
+</dl>
+
+<dd>
+<i><font color="#993366">"this chunk was either too big or too small; inspect
+the amount of variance"</font></i></dd>
+
+<dd>
+excessSize := availableSize - size.</dd>
+
+<dd>
+excessSize &gt;= HeaderSize</dd>
+
+<dl>
+<dd>
+ifTrue: <i><font color="#993366">"can be broken into two usable parts:
+return the second part"</font></i></dd>
+
+<dl>
+<dd>
+<font color="#000000">[</font><i><font color="#993366">"obtain an object
+table entry for the second part"</font></i></dd>
+
+<dd>
+newPointer := self obtainPointer: size</dd>
+
+<dl>
+<dl>
+<dl>
+<dd>
+location: (self locationBitsOf: objectPointer) + excessSize.</dd>
+</dl>
+</dl>
+</dl>
+
+<dd>
+newPointer isNil ifTrue: [^nil].</dd>
+
+<dd>
+<i><font color="#993366">"correct the size of the first part (which remains
+on the free list)"</font></i></dd>
+
+<dd>
+self sizeBitsOf: objectPointer put: excessSize.</dd>
+
+<dd>
+^newPointer]</dd>
+</dl>
+
+<dd>
+ifFalse:<i> "<font color="#993366">not big enough to use; try the next
+chunk on the list"</font></i></dd>
+
+<dl>
+<dd>
+[predecessor := objectPointer.</dd>
+
+<dd>
+objectPointer := self classBitsOf: objectPointer]].</dd>
+</dl>
+</dl>
+</dl>
+
+<dd>
+^nil <i><font color="#993366">"the end of the linked list was reached and
+no fit was found"</font></i></dd>
+</dl>
+</dl>
+The subroutine <tt>obtainPointer:location:</tt> used by the above routine
+obtains a free object table entry, zeroes its free entry bit as well as
+the rest of the first word of the entry, points the entry at the specified
+location, and sets the size field of the header to the specified size.
+<dl>
+<dd>
+<b>obtainPointer: size location: location</b></dd>
+
+<dl>
+<dd>
+| objectPointer |</dd>
+
+<dd>
+objectPointer := self removeFromFreePointerList.</dd>
+
+<dd>
+objectPointer isNil ifTrue: [^nil].</dd>
+
+<dd>
+self ot: objectPointer put: 0.</dd>
+
+<dd>
+self segmentBitsOf: objectPointer put. currentSegment.</dd>
+
+<dd>
+self locationBitsOf: objectPointer put: location.</dd>
+
+<dd>
+self sizeBitsOf: objectPointer put: size.</dd>
+
+<dd>
+^objectPointer</dd>
+</dl>
+</dl>
+<a name="ADeallocationAlgorithm30"></a><b><i><font color="#000099"><font size="+1">A
+Deallocation Algorithm</font></font></i></b>
+<br>
+<hr align="LEFT" noshade="noshade" size="1" width="60%">It is much simpler to deallocate
+an object than to allocate one. The chunk is recycled on a free-chunk list.
+The following routine expects the count field to have been reset to zero
+by a higher-level routine.
+<dl>
+<dd>
+<b>deallocate: objectPointer </b><i><font color="#3333FF">"**Preliminary
+Version**"</font></i></dd>
+
+<dl>
+<dd>
+| space |</dd>
+
+<dd>
+space := self spaceOccupiedBy: objectPointer.</dd>
+
+<dd>
+self toFreeChunkList: (space min: BigSize)</dd>
+
+<dl>
+<dd>
+add: objectPointer</dd>
+</dl>
+</dl>
+</dl>
+Note that this routine computes the space occupied by the object using
+<tt>spaceOccupiedBy:</tt>
+instead of <tt>sizeBitsOf:</tt>. The reason will become clear later in
+the chapter when <tt>spaceOccupiedBy:</tt> is redefined.
+<p><a name="ACompactionAlgorithm30"></a><b><i><font color="#000099"><font size="+1">A
+Compaction Algorithm</font></font></i></b>
+<br>
+</p><hr align="LEFT" noshade="noshade" size="1" width="60%">The <tt>compactCurrentSegment</tt>
+routine invoked above by <tt>attemptToAllocateChunk:</tt> sweeps through
+a heap segment, massing all allocated objects together and updating their
+object table entries. For the benefit of subsequent allocation, it also
+links the object table entries reclaimed from the free chunk lists onto
+the free pointer list and creates a single free chunk from the unused portion
+of the heap segment. The algorithm for <tt>compactCurrentSegment</tt> will
+be presented shortly, after some preparatory discussion.
+<br>&nbsp;&nbsp;&nbsp; After a heap segment is compacted a number of times,
+relatively permanent objects sift to the bottom of the segment and most
+allocation and deallocation activity occurs nearer to the top. The segment
+consists of a densely packed region of allocated chunks, followed by a
+region of both allocated and free chunks. During compaction, chunks in
+the densely packed region never move, because there is no space beneath
+them to eliminate. Therefore, the compacter expends effort only on chunks
+above the first free chunk, whose location is referred to as <tt>lowWaterMark</tt>.
+<br>&nbsp;&nbsp;&nbsp; The <tt>abandonFreeChunksInSegment:</tt> routine
+computes <tt>lowWaterMark</tt>. It also finds all deallocated chunks, recycles
+their object table entries onto the list of free pointers using the subroutine
+<tt>releasePointer:</tt>,
+and changes their class fields to the distinguished value <tt>NonPointer</tt>.
+During the subsequent sweep, when the compacter encounters objects so marked
+it can recognize them as deallocated chunks.
+<dl>
+<dd>
+<b>abandonFreeChunksInSegment: segment</b></dd>
+
+<dl>
+<dd>
+| lowWaterMark objectPointer nextPointer |</dd>
+
+<dd>
+lowWaterMark := HeapSpaceStop. <i><font color="#993366">"first assume that
+no chunk is free"</font></i></dd>
+
+<dd>
+HeaderSize to: BigSize do: <i><font color="#993366">"for each free-chunk
+list"</font></i></dd>
+
+<dl>
+<dd>
+[:size |</dd>
+
+<dd>
+objectPointer := self headOfFreeChunkList: size</dd>
+
+<dl>
+<dl>
+<dl>
+<dd>
+inSegment: segment.</dd>
+</dl>
+</dl>
+</dl>
+
+<dd>
+[objectPointer = NonPointer] whileFalse:</dd>
+
+<dl>
+<dd>
+[lowWaterMark := lowWaterMark min: (self locationBitsOf: objectPointer).</dd>
+
+<dd>
+nextPointer := self classBitsOf: objectPointer. <i><font color="#993366">"link
+to next free chunk"</font></i></dd>
+
+<dd>
+self classBitsOf: objectPointer put: NonPointer. <i><font color="#993366">"distinguish
+for sweep"</font></i></dd>
+
+<dd>
+self releasePointer: objectPointer. <i><font color="#993366">"add entry
+to free-pointer list"</font></i></dd>
+
+<dd>
+objectPointer := nextPointer].</dd>
+</dl>
+
+<dd>
+self resetFreeChunkList: size inSegment: segment].</dd>
+</dl>
+
+<dd>
+^lowWaterMark</dd>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>releasePointer: objectPointer</b></dd>
+
+<dl>
+<dd>
+self freeBitOf: objectPointer put: 1.</dd>
+
+<dd>
+self toFreePointerListAdd: objectPointer</dd>
+</dl>
+</dl>
+A heap segment is compacted by sweeping through it from bottom to top.
+Each allocated object is moved as far down in the segment as possible without
+overwriting other allocated objects. For each object moved, the corresponding
+object table entry is found and its location field is updated to point
+to the new location of the object.
+<br>&nbsp;&nbsp;&nbsp; It is by no means trivial to find the object table
+entry of an object encountered during a sweep of the heap segment. The
+representation of the object in the heap does not include a pointer back
+to the object table entry. To avoid the cost of such a backpointer for
+every object or making the compacter search the object table after every
+object is moved, a trick called "reversing pointers" is employed. During
+compaction, instead of the usual arrangement in which the object table
+entry points to the header in the heap, the header points temporarily to
+the object table entry.
+<br>&nbsp;&nbsp;&nbsp; Pointers are reversed before starting to sweep through
+a heap segment. The object table is scanned to find every in-use entry
+whose segment field refers to the segment being compacted and whose location
+field is above <tt>lowWaterMark</tt>. Each such entry points to the header
+of an object that is to be moved (<a href="../bluebook/bluebook_chapter30.html#Figure_30.8">Figure 30.8a</a>).
+The pointer is then reversed, i.e., the object's own object pointer is
+stored in the first word of its header. This causes the header to point
+to the object table entry. By doing this, the size field of the header
+is overwritten. To prevent losing the size, it is saved in the second word
+of the object table entry (<a href="../bluebook/bluebook_chapter30.html#Figure_30.8">Figure 30.8b</a>). By
+doing that, the location field is overwritten, but that is of no consequence,
+because the compacter recomputes the object's heap location after the move.
+<br><a name="Figure_30.8"></a>
+<center><table cellpadding="2" cellspacing="2">
+<tbody><tr>
+<td><img src="bluebook_chapter30_files/figure30_8.gif" height="304" width="420"></td>
+</tr>
+
+<tr>
+<td align="CENTER" valign="CENTER"><b>Figure 30.8</b></td>
+</tr>
+</tbody></table></center>
+
+<dl>
+<dd>
+<b>reverseHeapPointersAbove: lowWaterMark</b></dd>
+
+<dl>
+<dd>
+| size |</dd>
+
+<dd>
+0 to: ObjectTableSize - 2 by: 2 do:</dd>
+
+<dl>
+<dd>
+[:objectPointer |</dd>
+
+<dd>
+(self freeBitOf: objectPointer) = 0</dd>
+
+<dd>
+ifTrue: <i><font color="#993366">"the Object Table entry is in use"</font></i></dd>
+
+<dl>
+<dd>
+[(self segmentBitsOf: objectPointer) = currentSegment</dd>
+
+<dl>
+<dd>
+ifTrue: <i><font color="#993366">"the object is in this segment"</font></i></dd>
+
+<dl>
+<dd>
+[(self locationBitsOf: objectPointer) &lt; lowWaterMark</dd>
+
+<dl>
+<dd>
+ifFalse: <i><font color="#993366">"the object will be swept"</font></i></dd>
+
+<dl>
+<dd>
+[size := self sizeBitsOf: objectPointer. <i><font color="#993366">"rescue
+the size"</font></i></dd>
+
+<dd>
+self sizeBitsOf: objectPointer</dd>
+
+<dl>
+<dd>
+put: objectPointer. <i><font color="#993366">"reverse the pointer"</font></i></dd>
+</dl>
+
+<dd>
+self locationBitsOf: objectPointer</dd>
+
+<dl>
+<dd>
+put: size <i><font color="#993366">"save the size" </font></i>]]]]</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+</dl>
+</dl>
+</dl>
+</dl>
+</dl>
+After all preparations for compaction are complete, the current heap segment
+is swept using the <tt>sweepCurrentSegmentFrom</tt>: routine. It maintains
+two pointers into the segment, <tt>si</tt> (source index) and <tt>di</tt>
+(destination index). The pointer <tt>si</tt> points to the header of an
+object currently being considered for retention or elimination. The pointer
+<tt>di</tt>
+points to the location where that object will be moved if retained.
+<dl>
+<dd>
+<b>sweepCurrentSegmentFrom: lowWaterMark</b></dd>
+
+<dl>
+<dd>
+| si di objectPointer size space |</dd>
+
+<dd>
+si := di := lowWaterMark.</dd>
+
+<dd>
+[si &lt; HeapSpaceStop] whileTrue: <i><font color="#993366">"for each object,
+si"</font></i></dd>
+
+<dl>
+<dd>
+[(wordMemory segment: currentSegment word: si + 1) = NonPointer</dd>
+
+<dl>
+<dd>
+ifTrue: <i><font color="#993366">"unallocated, so skip it"</font></i></dd>
+
+<dl>
+<dd>
+[size := wordMemory segment: currentSegment word: si.</dd>
+
+<dd>
+si := si + size]</dd>
+</dl>
+
+<dd>
+ifFalse: <i><font color="#993366">"allocated, so keep it, but move it to
+compact storage"</font></i></dd>
+
+<dl>
+<dd>
+[objectPointer := wordMemory segment: currentSegment word: si.</dd>
+
+<dd>
+size := self locationBitsOf: objectPointer. <i><font color="#993366">"the
+reversed size"</font></i></dd>
+
+<dd>
+self locationBitsOf: objectPointer</dd>
+
+<dl>
+<dd>
+put: di. <i><font color="#993366">"point object table at new location"</font></i></dd>
+</dl>
+
+<dd>
+self sizeBitsOf: objectPointer</dd>
+
+<dl>
+<dd>
+put: size. <i><font color="#993366">"restore the size to its proper place"</font></i></dd>
+</dl>
+
+<dd>
+si := si + 1. <i><font color="#993366">"skip the size"</font></i></dd>
+
+<dd>
+di := di + 1. <i><font color="#993366">"skip the size"</font></i></dd>
+
+<dd>
+2 to: (self spaceOccupiedBy: objectPointer) do:</dd>
+
+<dl>
+<dd>
+<i><font color="#993366">"move the rest of the object"</font></i></dd>
+
+<dd>
+[:i |</dd>
+
+<dd>
+wordMemory segment: currentSegment</dd>
+
+<dl>
+<dl>
+<dd>
+word: di</dd>
+
+<dd>
+put: (wordMemory segment: currentSegment</dd>
+
+<dl>
+<dl>
+<dl>
+<dd>
+word: si).</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+</dl>
+
+<dd>
+si := si + 1.</dd>
+
+<dd>
+di := di + 1]]].</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+
+<dd>
+^di</dd>
+</dl>
+</dl>
+Note that while pointers are reversed, it is impossible to access the heap
+memory of an object from its object table entry. Therefore the Smalltalk
+interpreter cannot run during compaction.
+<p>The <tt>compactCurrentSegment</tt> routine invokes the above routines
+in the proper order and then creates the single free chunk at the top of
+the heap segment.
+</p><dl>
+<dd>
+<b>compactCurrentSegment</b></dd>
+
+<dl>
+<dd>
+| lowWaterMark bigSpace |</dd>
+
+<dd>
+lowWaterMark := self abandonFreeChunksInSegment: currentSegment.</dd>
+
+<dd>
+lowWaterMark &lt; HeapSpaceStop</dd>
+
+<dl>
+<dd>
+ifTrue: [self reverseHeapPointersAbove: lowWaterMark.</dd>
+
+<dl>
+<dd>
+bigSpace := self sweepCurrentSegmentFrom: lowWaterMark.</dd>
+
+<dd>
+self deallocate: (self obtainPointer: (HeapSpaceStop + 1 - bigSpace)</dd>
+
+<dl>
+<dl>
+<dl>
+<dd>
+location: bigSpace)]</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+</dl>
+</dl>
+</dl>
+If there are no free chunks within the segment when this routine is invoked,
+then it does not move any objects.
+<center>
+<hr size="1" width="80%"><a name="GarbageCollection30"></a><b><font color="#3333FF"><font size="+2">Garbage
+Collection</font></font></b>
+<hr size="1" width="80%"></center>
+In Smalltalk, a new object is allocated explicitly (e.g., when the message
+<tt>new</tt> is sent to a class) but there is no explicit language construct
+that causes an object to be deallocated. Such a construct would be unsafe,
+because it could be used to deallocate an object even though "dangling"
+references to it still existed in other objects. An environment containing
+dangling references would be inconsistent and would be likely to exhibit
+unintended behavior and to suffer unrecoverable errors.
+<br>&nbsp;&nbsp;&nbsp; Most noninteractive programming systems require
+explicit deallocation. The burden of avoiding dangling references is placed
+on the programmer. If a dangling reference arises, the programmer is expected
+to find the bug that created it, fix that bug, and restart the program.
+In an interactive environment like Smalltalk (as well as most LISP and
+APL systems), to require a restart because of a common bug would be unacceptable,
+since it could require the user to redo a potentially large amount of work.
+<br>&nbsp;&nbsp;&nbsp; Because there is no explicit deallocation in Smalltalk,
+the memory manager must identify objects that have become <i>inaccessible</i>
+and deallocate them automatically. This task is traditionally known as
+<i>garbage
+collection</i>. As compared with explicit deallocation, garbage collection
+entails a large performance penalty. The penalty is incurred because the
+computer must manage deallocation at execution time instead of relying
+on the programmer to have done so during coding time. However, the cost
+is well worth the reliability it adds to an interactive system.
+<br>&nbsp;&nbsp;&nbsp; There are two traditional approaches to identifying
+inaccessible objects in an object memory: <i>marking</i> and <i>reference
+counting</i>. A marking garbage collector performs an exhaustive search
+of memory for accessible objects and marks them all. Then it scans memory
+in search of objects that are unmarked and thus inaccessible and deallocates
+them. A reference-counting garbage collector maintains a count of how many
+references there are to each object from other objects. When the count
+of references to some object reaches zero, that object is known to be inaccessible,
+and the space it occupies can be reclaimed.
+<br>&nbsp;&nbsp;&nbsp; Reference-counting systems do not deal properly
+with so-called "cyclic structures." Such a structure is said to occur when
+an object references itself directly or when an object references itself
+indirectly via other objects that reference it. In a reference-counting
+system, when a cyclic structure becomes inaccessible to the program, it
+will have nonzero reference counts due to the intrastructure references.
+Therefore the memory manager doesn't recognize that the structure should
+be deallocated, and the objects that constitute the structure are not deallocated.
+These inaccessible objects waste space; but, unlike dangling references,
+they do not cause inconsistency in the environment.
+<br>&nbsp;&nbsp;&nbsp; Both reference counting and marking involve performance
+penalties on conventional computers. In a reference-counting system, the
+frequently performed operation of storing a reference to an object involves
+overhead for reference-count maintenance, so programs run significantly
+more slowly. In a marking garbage collector, an extensive search of memory
+must be performed whenever space is entirely depleted. Therefore, program
+execution is subject to relatively lengthy interruptions that can be quite
+annoying in an interactive system. Both approaches incur space overhead.
+In a reference-counting system, space must be provided to store reference
+counts. In a marking system, extra space must be allotted in the heap to
+allow garbage to accumulate between collections. Otherwise, collections
+occur too frequently.
+<br>&nbsp;&nbsp;&nbsp; The approach to garbage collection that should be
+used in a particular implementation of Smalltalk depends in part on the
+capacity of the hardware. If a relatively small amount of memory (e.g.,
+100 kilobytes) is available, a reference counting system is intolerable,
+because it can waste precious space by leaving inaccessible cyclic structures
+allocated. On the other hand, a marking collector is quite acceptable in
+these circumstances, in spite of the interruption that occurs when it is
+invoked, because when memory is small, the duration of the interruption
+can be so brief as to be imperceptible. If an abundant supply of memory
+(e.g., two megabytes) is available, the time it takes to mark all accessible
+objects can be so long as to be intolerable. On the other hand, there is
+enough space available that a moderate number of inaccessible objects can
+be tolerated.
+<br>&nbsp;&nbsp;&nbsp; The contrast between the two approaches is accentuated
+in a large virtual-memory system. Marking is even more costly because so
+much time is spent in random accesses to secondary memory. Reference counting
+is even less costly because unreclaimed cyclic structures simply migrate
+to secondary memory where wasted space is less bothersome. When memory
+is abundant, a reference-counting garbage collector is appropriate. However,
+Smalltalk programmers should take precautions to avoid the accumulation
+of an excessive number of inaccessible cyclic structures, otherwise even
+a large memory will be depleted. To break a cyclic structure before it
+becomes inaccessible, the program can change any pointer that participates
+in the cycle to <tt>nil</tt>.
+<br>&nbsp;&nbsp;&nbsp; The two approaches to garbage collection can be
+combined. References can be counted during normal operation and marking
+collections performed periodically to reclaim inaccessible cyclic structures.
+A combined approach is suitable for all but the smallest real-memory implementations.
+If a small-to-medium-size memory is available, a marking collection can
+be performed whenever compaction fails to recover enough space. If an abundant
+memory is available, marking collections can be performed nightly or at
+other convenient intervals.
+<p><a name="ASimpleReferenceCountingCollector30"></a><b><i><font color="#000099"><font size="+1">A
+Simple Reference-counting Collector</font></font></i></b>
+<br>
+</p><hr align="LEFT" noshade="noshade" size="1" width="60%">In the reference-counting collector
+described in this chapter, the reference count of an object is recorded
+in the count field of its object table entry. If an object pointer is an
+immediate integer, it is its own only reference, so its reference count
+is not recorded explicitly. Reference counts are updated during store operations.
+When an object pointer referencing object <b><i>P</i></b> is stored into
+a location that formerly contained an object pointer referencing object
+<b><i>Q</i></b>, the count field of <b><i>P</i></b> is incremented and
+the count field of <b><i>Q</i></b> is decremented. Because the count field
+of an object table entry has only eight bits, it is possible for an incremented
+count to overflow. To facilitate overflow detection on most computers,
+the high order bit of the count field serves as an overflow bit. Once the
+count field reaches 128, it remains at that value and it will not increase
+or decrease. The algorithm for incrementing a reference count is
+<dl>
+<dd>
+<b>countUp: objectPointer</b></dd>
+
+<dl>
+<dd>
+| count |</dd>
+
+<dd>
+(self isIntegerObject: objectPointer)</dd>
+
+<dl>
+<dd>
+ifFalse: [count := (self countBitsOf: objectPointer) + 1.</dd>
+
+<dl>
+<dd>
+count &lt; 129 ifTrue: [self countBitsOf: objectPointer put: count]].</dd>
+</dl>
+</dl>
+
+<dd>
+^objectPointer</dd>
+</dl>
+</dl>
+If the decremented reference count of an object reaches zero, then that
+object is deallocated. Before doing so, the count field of every object
+referenced from that object is decremented, because once the object is
+deallocated it will no longer reference those other objects. Note that
+this procedure recurs if any of the latter counts reach zero. A recursive
+procedure that can traverse the original object plus all the objects it
+references is expressed below as the routine <tt>forAllObjectsAccessibleFrom:suchThat:do:</tt>.
+This routine takes two procedural arguments represented by blocks, a <tt>predicate</tt>
+that decrements a count and tests for zero and an <tt>action</tt> that
+deallocates an object. Between evaluating the <tt>predicate</tt> and the
+<tt>action</tt>, the procedure's subroutine, <tt>forAllOtherObjectsAccessibleFrom:suchThat:do:</tt>,
+recursively processes every pointer in the object. The procedure is allowed
+to alter the count as a side effect, so the <tt>action</tt> argument must
+restore the count to zero in preparation for deallocation.
+<dl>
+<dd>
+<b>countDown: rootObjectPointer</b></dd>
+
+<dl>
+<dd>
+| count |</dd>
+
+<dd>
+(self isIntegerObject: rootObjectPointer)</dd>
+
+<dl>
+<dd>
+ifTrue: [^rootObjectPointer]</dd>
+
+<dd>
+ifFalse: <i><font color="#993366">"this is a pointer, so decrement its
+reference count"</font></i></dd>
+
+<dl>
+<dd>
+[^self forAllObjectsAccessibleFrom: rootObjectPointer</dd>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; suchThat: <i><font color="#993366">"the
+predicate decrements the count and tests for zero"</font></i></dd>
+
+<dl>
+<dl>
+<dd>
+[:objectPointer |</dd>
+
+<dd>
+count := (self countBitsOf: objectPointer) - 1.</dd>
+
+<dd>
+count &lt; 127</dd>
+
+<dl>
+<dd>
+ifTrue: [self countBitsOf: objectPointer</dd>
+
+<dl>
+<dl>
+<dd>
+put: count].</dd>
+</dl>
+</dl>
+</dl>
+
+<dd>
+count = 0]</dd>
+</dl>
+</dl>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; do: <i><font color="#993366">"the
+action zeroes the count and deallocates the object"</font></i></dd>
+
+<dl>
+<dl>
+<dd>
+[:objectPointer |</dd>
+
+<dd>
+self countBitsOf: objectPointer put: 0.</dd>
+
+<dd>
+self deallocate: objectPointer]]</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+</dl>
+</dl>
+The traversal routine shown below first tests the predicate on the supplied
+object. It then invokes a subroutine that (1) recursively processes all
+objects referenced from within the supplied object that satisfy <tt>predicate</tt>,
+and (2) performs <tt>action</tt> on the supplied object.
+<dl>
+<dd>
+<b>forAllObjectsAccessibleFrom: objectPointer suchThat: predicate do: action</b></dd>
+
+<dl>
+<dd>
+(predicate value: objectPointer)</dd>
+
+<dl>
+<dd>
+ifTrue: [^self forAllOtherObjectsAccessibleFrom: objectPointer</dd>
+
+<dl>
+<dl>
+<dd>
+&nbsp; suchThat: predicate</dd>
+
+<dd>
+&nbsp; do: action]</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>forAllOtherObjectsAccessibleFrom: objectPointer suchThat: predicate
+do: action</b></dd>
+
+<dl>
+<dd>
+| next |</dd>
+
+<dd>
+1 to: (self lastPointerOf: objectPointer) - 1 do:</dd>
+
+<dl>
+<dd>
+[:offset |</dd>
+
+<dd>
+next := self heapChunkOf: objectPointer word: offset.</dd>
+
+<dd>
+((self isIntegerObject: next) == false and: [predicate value: next])</dd>
+
+<dl>
+<dd>
+ifTrue: <i><font color="#993366">"it's a non-immediate object and it should
+be processed"</font></i></dd>
+
+<dl>
+<dd>
+[self forAllOtherObjectsAccessibleFrom: next</dd>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; suchThat: predicate</dd>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; do: action]].</dd>
+</dl>
+</dl>
+</dl>
+
+<dd>
+<i><font color="#993366">"all pointers have been followed; now perform
+the action"</font></i></dd>
+
+<dd>
+action value: objectPointer.</dd>
+
+<dd>
+^objectPointer</dd>
+</dl>
+</dl>
+<a name="ASpaceEfficientReferenceCountingCollector30"></a><b><i><font color="#000099"><font size="+1">A
+Space-efficient Reference-counting Collector</font></font></i></b>
+<br>
+<hr align="LEFT" noshade="noshade" size="1" width="60%">The traversal algorithm outlined
+above is recursive and, therefore, must use a stack in its execution. To
+guard against stack overflow, the depth of the stack must be greater than
+the longest chain of pointers in memory. This requirement is difficult
+to satisfy when memory space is limited. To guarantee that enough space
+is available, the pointer chain itself can be used as the stack. If object
+<b><i>A</i></b>
+references object <b><i>B</i></b> from <b><i>A</i></b>'s
+<b><i>i<sup>th</sup></i></b>
+field, and object <b><i>B</i></b> references object <b><i>C</i></b> from
+<b><i>B</i></b>'s
+<b><i>j<sup>th</sup></i></b>
+field, and object <b><i>C</i></b> references another object from <b><i>C'</i></b>s
+<b><i>k<sup>th</sup></i></b>
+field, and so on, the pointer chain can be represented as <i><b>A.i</b>-&gt;<b>B.j</b>-&gt;<b>C.k</b>-&gt;<b>...</b></i>
+(<a href="../bluebook/bluebook_chapter30.html#Figure_30.9">Figure 30.9a</a>). To use the pointer chain as
+a stack for the recursion of the traversal algorithm, the chain is temporarily
+reversed to <i><b>...</b>-&gt;<b>C.k</b>-&gt;<b>B.j</b>-&gt;<b>A.i</b></i> so that
+each field in the chain points to its predecessor instead of to its successor
+(<a href="../bluebook/bluebook_chapter30.html#Figure_30.9">Figure 30.9b</a>).
+<br>&nbsp;&nbsp;&nbsp; Each step of the traversal algorithm's recursion
+must be completed by "popping the stack." After processing any object in
+the chain (e.g., <b><i>C</i></b>), its predecessor (e.g., <b><i>B</i></b>)
+is found by following the reversed pointer chain. The algorithm also needs
+to know which field of the predecessor was being worked on. To maintain
+this information, the algorithm must be changed at the earlier stage where
+it left <b><i>B</i></b> to process <b><i>C</i></b>. At that stage, the
+index of the field,<b><i> j</i></b>, is copied into the count field of
+the object table entry of <b><i>B</i></b>. The count can be overwritten
+because the object is being deallocated. But if the size of <b><i>B</i></b>
+exceeds 255 words, then the count field will not be large enough to store
+every field index. Instead, the allocator is revised to over-allocate by
+one word any object that is HugeSize (256) words or more and to reserve
+that extra word for use by the traversal algorithm to store <i>offset</i>.
+<br><a name="Figure_30.9"></a>
+<center><table cellpadding="2" cellspacing="2">
+<tbody><tr>
+<td><img src="bluebook_chapter30_files/figure30_9.gif" height="298" width="496"></td>
+</tr>
+
+<tr>
+<td align="CENTER" valign="CENTER"><b><font color="#000000">Figure 30.9</font></b></td>
+</tr>
+</tbody></table></center>
+To accommodate over-allocation, the allocation routine is revised to accept
+an additional argument, <tt>extraWord</tt>, that is either 0 or 1. It is
+also necessary for the allocator to increment the reference count of the
+new object's class before storing the class into the header of the new
+object. (In fact, this must be accomplished even earlier, before calling
+<tt>allocateChunk:</tt>, to assure that the class is not deallocated accidentally
+by some side effect of that subroutine.)
+<dl>
+<dd>
+<b>allocate: size extra: extraWord class: classPointer </b><i><font color="#3333FF">"**Preliminary
+Version**"</font></i></dd>
+
+<dl>
+<dd>
+| objectPointer |</dd>
+
+<dd>
+self countUp: classPointer. <i><font color="#993366">"increment the reference
+count of the class"</font></i></dd>
+
+<dd>
+objectPointer := self allocateChunk: size + extraWord. <i><font color="#993366">"allocate
+enough"</font></i></dd>
+
+<dd>
+self classBitsOf: objectPointer put: classPointer.</dd>
+
+<dd>
+HeaderSize to: size - 1 do:</dd>
+
+<dl>
+<dd>
+[:i | self heapChunkOf: objectPointer word: i put: NilPointer].</dd>
+</dl>
+
+<dd>
+<i><font color="#993366">"the next statement to correct the SIZE need only
+be executed if extraWord &gt; 0"</font></i></dd>
+
+<dd>
+self sizeBitsOf: objectPointer put: size.</dd>
+
+<dd>
+^objectPointer</dd>
+</dl>
+</dl>
+The actual heap space occupied by an object with at least <tt>HugeSize</tt>
+fields is one greater than that stated in its size field, because of the
+extra word allocated. Therefore, the <tt>spaceOccupiedBy:</tt> routine
+must be changed to account for the difference.
+<dl>
+<dd>
+<b>spaceOccupiedBy: objectPointer </b><i><font color="#3333FF">"**Preliminary
+Version**"</font></i></dd>
+
+<dl>
+<dd>
+| size |</dd>
+
+<dd>
+size := self sizeBitsOf: objectPointer.</dd>
+
+<dd>
+size &lt; HugeSize</dd>
+
+<dl>
+<dd>
+ifTrue: [^size]</dd>
+
+<dd>
+ifFalse: [^size + 1]</dd>
+</dl>
+</dl>
+</dl>
+The deallocation algorithm must also be revised because deallocated objects
+have no provision for an extra word not counted in the size field.
+<dl>
+<dd>
+<b>deallocate: objectPointer</b></dd>
+
+<dl>
+<dd>
+| space |</dd>
+
+<dd>
+space := self spaceOccupiedBy: objectPointer.</dd>
+
+<dd>
+self sizeBitsOf: objectPointer put: space.</dd>
+
+<dd>
+self toFreeChunkList: (space min: BigSize) add: objectPointer</dd>
+</dl>
+</dl>
+The following routine implements the space-efficient traversal algorithm,
+with <b><i>A</i></b>, <b><i>B</i></b>, and <b><i>C </i></b>of the above
+example represented by the variables <tt>prior</tt>, <tt>current</tt>,
+and <tt>next</tt>. To simplify the loop test, the method scans the fields
+of each chunk in reverse order. Thus the class field is processed last.
+<br>&nbsp;&nbsp;&nbsp; Note that the last statement of the method restores
+the pointer chain to get <b><i>B.j</i></b> again pointing to <b><i>C </i></b>instead
+of to <b><i>A</i></b>. It is easy to do so when returning to <b><i>B</i></b>
+from processing <b><i>C</i></b>, because object pointer of <b><i>C</i></b>
+can simply be stored in the <b><i>j<sup>th</sup></i></b> field of <b><i>B</i></b>.
+One might think that step unnecessary, because <b><i>B </i></b>is being
+deallocated. However, the same traversal algorithm can be used by a marking
+collector in which <b><i>B</i></b> is not being deallocated.
+<dl>
+<dd>
+<b>forAllOtherObjectsAccessibleFrom: objectPointer suchThat: predicate
+do: action</b></dd>
+
+<dl>
+<dd>
+| prior current offset size next |</dd>
+
+<dd>
+<i><font color="#993366">"compute prior, current, offset, and size to begin
+processing objectPointer"</font></i></dd>
+
+<dd>
+prior := NonPointer.</dd>
+
+<dd>
+current := objectPointer.</dd>
+
+<dd>
+offset := size := self lastPointerOf: objectPointer.</dd>
+
+<dd>
+[true] whileTrue: <i><font color="#993366">"for all pointers in all objects
+traversed"</font></i></dd>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp; [(offset := offset - 1) &gt; 0 <i><font color="#993366">"decrement
+the field index"</font></i></dd>
+
+<dl>
+<dd>
+ifTrue: <i><font color="#993366">"the class field hasn't been passed yet"</font></i></dd>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp; [next := self heapChunkOf: current word: offset.
+<i><font color="#993366">"one of the pointers"</font></i></dd>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp; ((self isIntegerObject: next) == false and: [predicate
+value: next])</dd>
+
+<dl>
+<dd>
+ifTrue: <i><font color="#993366">"it's a non-immediate object and it should
+be processed"</font></i></dd>
+
+<dl>
+<dd>
+<font color="#000000">[</font><i><font color="#993366">"reverse the pointer
+chain"</font></i></dd>
+
+<dd>
+self heapChunkOf: current word: offset put: prior.</dd>
+
+<dd>
+<i><font color="#993366">"save the offset either in the count field or
+in the extra word"</font></i></dd>
+
+<dd>
+size &lt; HugeSize</dd>
+
+<dl>
+<dd>
+ifTrue: [self countBitsOf: current put: offset]</dd>
+
+<dd>
+ifFalse: [self heapChunkOf: current word: size + 1 put: offset].</dd>
+</dl>
+
+<dd>
+<i><font color="#993366">"compute prior, current, offset, and size to begin
+processing next"</font></i></dd>
+
+<dd>
+prior := current.</dd>
+
+<dd>
+current := next.</dd>
+
+<dd>
+offset := size := self lastPointerOf: current]]</dd>
+</dl>
+</dl>
+
+<dd>
+ifFalse:</dd>
+
+<dl>
+<dd>
+[<i><font color="#993366">" all pointers have been followed; now perform
+the action"</font></i></dd>
+
+<dd>
+action value: current.</dd>
+
+<dd>
+<i><font color="#993366">"did we get here from another object?"</font></i></dd>
+
+<dd>
+prior = NonPointer</dd>
+
+<dl>
+<dd>
+ifTrue: <i><font color="#993366">"this was the root object, so we are done"</font></i></dd>
+
+<dl>
+<dd>
+[^objectPointer].</dd>
+</dl>
+</dl>
+
+<dd>
+<i><font color="#993366">"restore next, current, and size to resume processing
+prior"</font></i></dd>
+
+<dd>
+next := current.</dd>
+
+<dd>
+current := prior.</dd>
+
+<dd>
+size := self lastPointerOf: current.</dd>
+
+<dd>
+<i><font color="#993366">"restore offset either from the count field or
+from the extra word"</font></i></dd>
+
+<dd>
+size &lt; HugeSize</dd>
+
+<dl>
+<dd>
+ifTrue: [offset := self countBitsOf: current]</dd>
+
+<dd>
+ifFalse: [offset := self heapChunkOf: current word: size + 1].</dd>
+</dl>
+
+<dd>
+<i><font color="#993366">"restore prior from the reversed pointer chain"</font></i></dd>
+
+<dd>
+prior := self heapChunkOf: current word: offset.</dd>
+
+<dd>
+<i><font color="#993366">"restore (unreverse) the pointer chain"</font></i></dd>
+
+<dd>
+self heapChunkOf: current word: offset put: next]]</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+The machine-language implementation can deal with the procedural arguments
+either by passing a pair of subroutine addresses to be called indirectly
+or by expanding the subroutines in line. If the hardware has enough registers,
+it is possible to keep the variables <tt>next</tt>, <tt>current</tt>, <tt>prior</tt>,
+<tt>size</tt>, and <tt>offset</tt> in registers for additional speed of
+execution.
+<p><a name="AMarkingCollector30"></a><b><i><font color="#000099"><font size="+1">A
+Marking Collector</font></font></i></b>
+<br>
+</p><hr align="LEFT" noshade="noshade" size="1" width="60%">The job of the marking garbage
+collector is to mark all accessible objects so that the remaining inaccessible
+objects can be identified and added to the lists of free chunks. Accessible
+objects can be found most easily by a recursive search from the "roots
+of the world," namely, the interpreter's stacks and the table of global
+variables (the <tt>Dictionary</tt> named <tt>Smalltalk</tt>).
+<br>&nbsp;&nbsp;&nbsp; The following algorithm is performed on each root
+object. In the object table entry of the object, set the count field to
+1 to mean "marked." Apply the algorithm of this paragraph to each unmarked
+object referenced by the object.
+<br>&nbsp;&nbsp;&nbsp; Note that the above <i>marking algorithm</i> is
+inherently recursive. In its implementation, the same traversal routine
+used for reference counting can be used, in either the simple or the space-efficient
+version. Before marking begins, the count fields of all objects are reset
+to 0 to mean "unmarked." After marking ends, all unmarked objects are deallocated
+and the reference counts of all marked objects are recomputed. The routine
+that performs all the necessary steps is called <tt>reclaimInaccessibleObjects</tt>.
+<dl>
+<dd>
+<b>reclaimInaccessibleObjects</b></dd>
+
+<dl>
+<dd>
+self zeroReferenceCounts.</dd>
+
+<dd>
+self markAccessibleObjects.</dd>
+
+<dd>
+self rectifyCountsAndDeallocateGarbage</dd>
+</dl>
+</dl>
+The subroutine that sets the count fields of all objects to 0 is called
+<tt>zeroReferenceCounts</tt>.
+It is superfluous to zero the count field of a free chunk or of a free
+entry. Nevertheless, the following version zeroes the count field of every
+entry, because on most computers, it takes less time to zero the first
+byte of an entry than it takes to test the status of that entry.
+<dl>
+<dd>
+<b>zeroReferenceCounts</b></dd>
+
+<dl>
+<dd>
+0 to: ObjectTableSize - 2 by: 2 do:</dd>
+
+<dl>
+<dd>
+[:objectPointer |</dd>
+
+<dd>
+self countBitsOf: objectPointer put: 0]</dd>
+</dl>
+</dl>
+</dl>
+The subroutine <tt>markAccessibleObjects</tt> invokes the marking algorithm
+<tt>markObjectsAccessibleFrom:</tt>
+for every object in the list <tt>rootObjectPointers</tt>. Typically, the
+list <tt>rootObjectPointers</tt> includes the object pointer of the current
+process and the object pointer of the global variable dictionary, from
+which all other accessible objects are referenced directly or indirectly.
+<dl>
+<dd>
+<b>markAccessibleObjects</b></dd>
+
+<dl>
+<dd>
+rootObjectPointers do:</dd>
+
+<dl>
+<dd>
+[:rootObjectPointer |</dd>
+
+<dd>
+self markObjectsAccessibleFrom: rootObjectPointer]</dd>
+</dl>
+</dl>
+</dl>
+The marking algorithm <tt>markObjectsAccessibleFrom:</tt> calls the same
+traversal routine as the reference-counting collector did. Its <tt>predicate</tt>
+succeeds for unmarked objects and it marks them with a count of 1 as a
+side effect. Its <tt>action</tt> restores the count field to 1 because
+the space-efficient version of the traversal routine could have changed
+that field to any nonzero value as a side effect.
+<dl>
+<dd>
+<b>markObjectsAccessibleFrom: rootObjectPointer</b></dd>
+
+<dl>
+<dd>
+| unmarked |</dd>
+
+<dd>
+^self forAllObjectsAccessibleFrom: rootObjectPointer</dd>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; suchThat: <i><font color="#993366">"the
+predicate tests for an unmarked object and marks it"</font></i></dd>
+
+<dl>
+<dl>
+<dd>
+[:objectPointer |</dd>
+
+<dd>
+unmarked := (self countBitsOf: objectPointer) = 0.</dd>
+
+<dd>
+unmarked ifTrue: [self countBitsOf: objectPointer put: 1].</dd>
+
+<dd>
+unmarked]</dd>
+</dl>
+</dl>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; do: <i><font color="#993366">"the
+action restores the mark to count = 1"</font></i></dd>
+
+<dl>
+<dl>
+<dd>
+[:objectPointer |</dd>
+
+<dd>
+self countBitsOf: objectPointer put: 1]</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+After the marking algorithm has been executed, every non-free object table
+entry is examined using the subroutine <tt>rectifyCountsAndDeallocateGarbage</tt>.
+If the entry is unmarked, then the entry and its heap chunk are added to
+the appropriate free lists. If the entry is marked, then the count is decremented
+by one to unmark it, and the counts of all objects that it references directly
+are incremented. Note that when a marked object is processed, its count
+may exceed 1 because objects previously processed may have referenced it.
+That is why it is unmarked by subtraction instead of by setting its count
+to 0.
+<br>&nbsp;&nbsp;&nbsp; During the examination of object table entries,
+chunks that were already free before the marking collection began will
+be encountered. The count field of an already-free chunk is zero just like
+an unmarked object, so it will be added to a free-chunk list. Doing so
+would cause a problem if the chunk were already on a free-chunk list. Therefore
+before the scan begins, all heads of free-chunk lists are reset.
+<br>&nbsp;&nbsp;&nbsp; As a final step, the reference count of each root
+object is incremented to assure that it is not deallocated accidentally.
+<dl>
+<dd>
+<b>rectifyCountsAndDeallocateGarbage</b></dd>
+
+<dl>
+<dd>
+| count |</dd>
+
+<dd>
+<i><font color="#993366">"reset heads of free-chunk lists"</font></i></dd>
+
+<dd>
+FirstHeapSegment to: LastHeapSegment do: <i><font color="#993366">"for
+every segment"</font></i></dd>
+
+<dl>
+<dd>
+[:segment |</dd>
+
+<dd>
+HeaderSize to: BigSize do: <i><font color="#993366">"for every free chunk
+list"</font></i></dd>
+
+<dl>
+<dd>
+[:size | <i><font color="#993366">"reset the list head"</font></i></dd>
+
+<dd>
+self resetFreeChunkList: size inSegment: segment]].</dd>
+</dl>
+</dl>
+
+<dd>
+<i><font color="#993366">"rectify counts, and deallocate garbage"</font></i></dd>
+
+<dd>
+0 to: ObjectTableSize - 2 by: 2 do: <i><font color="#993366">"for every
+object table entry"</font></i></dd>
+
+<dl>
+<dd>
+[:objectPointer |</dd>
+
+<dd>
+(self freeBitOf: objectPointer) = 0 ifTrue: <i><font color="#993366">"if
+it is not a free entry"</font></i></dd>
+
+<dl>
+<dd>
+[(count := self countBitsOf: objectPointer) = 0</dd>
+
+<dl>
+<dd>
+ifTrue: <i><font color="#993366">"it is unmarked, so deallocate it"</font></i></dd>
+
+<dl>
+<dd>
+[self deallocate: objectPointer]</dd>
+</dl>
+
+<dd>
+ifFalse: <i><font color="#993366">"it is marked, so rectify reference counts"</font></i></dd>
+
+<dl>
+<dd>
+[count &lt; 128 ifTrue: <i><font color="#993366">"subtract 1 to compensate
+for the mark"</font></i></dd>
+
+<dl>
+<dd>
+[self countBitsOf: objectPointer put: count - 1].</dd>
+</dl>
+
+<dd>
+1 to: (self lastPointerOf: objectPointer) - 1 do:</dd>
+
+<dl>
+<dd>
+[:offset |<i><font color="#993366"> "increment the reference count of each
+pointer"</font></i></dd>
+
+<dd>
+self countUp: (self heapChunkOf: objectPointer word: offset)]]]].</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+</dl>
+
+<dd>
+<i><font color="#993366">"be sure the root objects don't disappear"</font></i></dd>
+
+<dd>
+rootObjectPointers do:</dd>
+
+<dl>
+<dd>
+[:rootObjectPointer | self countUp: rootObjectPointer].</dd>
+</dl>
+
+<dd>
+self countBitsOf: NilPointer put: 128</dd>
+</dl>
+</dl>
+The <tt>allocateChunk:</tt> routine can now be revised so that it attempts
+a marking collection if compaction of all segments has failed to yield
+enough space to satisfy an allocation request.
+<dl>
+<dd>
+<b>allocateChunk: size</b></dd>
+
+<dl>
+<dd>
+| objectPointer |</dd>
+
+<dd>
+objectPointer := self attemptToAllocateChunk: size.</dd>
+
+<dd>
+objectPointer isNil ifFalse: [^objectPointer].</dd>
+
+<dd>
+self reclaimInaccessibleObjects. <i><font color="#993366">"garbage collect
+and try again"</font></i></dd>
+
+<dd>
+objectPointer := self attemptToAllocateChunk: size.</dd>
+
+<dd>
+objectPointer isNil ifFalse: [^objectPointer].</dd>
+
+<dd>
+self outOfMemoryError <i><font color="#993366">"give up"</font></i></dd>
+</dl>
+</dl>
+
+<center>
+<hr size="1" width="80%"><a name="NonpointerObjects30"></a><b><font color="#3333FF"><font size="+2">Nonpointer
+Objects</font></font></b>
+<hr size="1" width="80%"></center>
+The object format presented in this chapter is not particularly space efficient,
+but since its uniformity makes the system software small and simple, the
+inefficiency can generally be forgiven. There are two classes of object
+for which the inefficiency is intolerable, namely, character strings and
+bytecoded methods. There are usually many strings and methods in memory,
+and when stored one character or one bytecode per word, they are quite
+wasteful of space.
+<br>&nbsp;&nbsp;&nbsp; To store such objects more efficiently, an alternate
+memory format is used in which the data part of an object contains 8-bit
+or 16-bit values that are interpreted as unsigned integers rather than
+as object pointers. Such objects are distinguished by the setting of the
+pointer-fields bit of the object table entry: when that bit is 1, the data
+consist of object pointers; when that bit is 0, the data consist of positive
+8- or 16-bit integers. When there are an odd number of bytes of data in
+a nonpointer object, the final byte of the last word is 0 (a slight waste
+of space), and the odd-length bit of the object table entry, which is normally
+0, is set to 1. To support nonpointer objects, the allocator needs two
+additional parameters, <tt>pointerBit</tt> and <tt>oddBit</tt>. In the
+case of a nonpointer object (<tt>pointerBit</tt> <tt>=</tt> <tt>0</tt>),
+the default initial value of the elements is <tt>0</tt> instead of <tt>nil</tt>.
+The final version of the allocation routine is shown below.
+<dl>
+<dd>
+<b>allocate: size odd: oddBit pointer: pointerBit extra: extraWord class:
+classPointer</b></dd>
+
+<dl>
+<dd>
+| objectPointer default |</dd>
+
+<dd>
+self countUp: classPointer.</dd>
+
+<dd>
+objectPointer := self allocateChunk: size + extraWord.</dd>
+
+<dd>
+self oddBitOf: objectPointer put: oddBit.</dd>
+
+<dd>
+self pointerBitOf: objectPointer put: pointerBit.</dd>
+
+<dd>
+self classBitsOf: objectPointer put: classPointer.</dd>
+
+<dd>
+default := pointerBit = 0 ifTrue: [0] ifFalse: [NilPointer].</dd>
+
+<dd>
+HeaderSize to: size - 1 do:</dd>
+
+<dl>
+<dd>
+[:i | self heapChunkOf: objectPointer word: i put: default].</dd>
+</dl>
+
+<dd>
+self sizeBitsOf: objectPointer put: size.</dd>
+
+<dd>
+^objectPointer</dd>
+</dl>
+</dl>
+The garbage-collecting traversal routines need only process the class field
+of each nonpointer object, because the data contain no pointers. To make
+this happen, the routine <tt>lastPointerOf:</tt> is changed as follows:
+<dl>
+<dd>
+<b>lastPointerOf: objectPointer</b> <i><font color="#3333FF">"**Preliminary
+Version**"</font></i></dd>
+
+<dl>
+<dd>
+(self pointerBitOf: objectPointer) = 0</dd>
+
+<dl>
+<dd>
+ifTrue: [^HeaderSize]</dd>
+
+<dd>
+ifFalse: [^self sizeBitsOf: objectPointer]</dd>
+</dl>
+</dl>
+</dl>
+The value of <tt>lastPointerOf:</tt> is never as large as 256 for a nonpointer
+object, so a nonpointer object never needs to be over-allocated. Therefore,
+<tt>spaceOccupiedBy:</tt>
+is revised again as follows:
+<dl>
+<dd>
+<b>spaceOccupiedBy: objectPointer</b></dd>
+
+<dl>
+<dd>
+| size |</dd>
+
+<dd>
+size := self sizeBitsOf: objectPointer.</dd>
+
+<dd>
+(size &lt; HugeSize or: [(self pointerBitOf: objectPointer) = 0])</dd>
+
+<dl>
+<dd>
+ifTrue: [^size]</dd>
+
+<dd>
+ifFalse: [^size + 1]</dd>
+</dl>
+</dl>
+</dl>
+<a name="CompiledMethods30"></a><b><i><font color="#000099"><font size="+1">CompiledMethods</font></font></i></b>
+<br>
+<hr align="LEFT" noshade="noshade" size="1" width="60%">A <tt>CompiledMethod</tt> is
+an anomaly for the memory manager because its data are a mixture of 16-bit
+pointers and 8-bit unsigned integers. The only change needed to support<tt>
+CompiledMethods</tt> is to add to <tt>lastPointerOf:</tt> a computation
+similar to that in the bytecode interpreter's routine <tt>bytecodeIndexOf:</tt>.
+<tt>MethodClass</tt>
+is the object table index of <tt>CompiledMethod</tt>.
+<dl>
+<dd>
+<b>lastPointerOf: objectPointer</b></dd>
+
+<dl>
+<dd>
+| methodHeader |</dd>
+
+<dd>
+(self pointerBitOf: objectPointer) = 0</dd>
+
+<dl>
+<dd>
+ifTrue:</dd>
+
+<dl>
+<dd>
+[(self classBitsOf: objectPointer) = MethodClass</dd>
+
+<dl>
+<dd>
+ifTrue: [methodHeader := self heapChunkOf: objectPointer</dd>
+
+<dl>
+<dl>
+<dl>
+<dl>
+<dl>
+<dd>
+word: HeaderSize.</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+
+<dd>
+^HeaderSize + 1 + ((methodHeader bitAnd: 126) bitShift: -1)]</dd>
+</dl>
+
+<dd>
+ifFalse: [^HeaderSize]]</dd>
+</dl>
+</dl>
+
+<dd>
+ifFalse:</dd>
+
+<dl>
+<dd>
+[^self sizeBitsOf: objectPointer]</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+
+<center>
+<hr size="1" width="80%"><a name="InterfaceToTheBytecodeInterpreter30"></a><b><font color="#3333FF"><font size="+2">Interface
+to the Bytecode Interpreter</font></font></b>
+<hr size="1" width="80%"></center>
+The final step in the implementation of the object memory is to provide
+the interface routines required by the interpreter. Note that <tt>fetchClassOf:</tt>
+<tt>objectPointer</tt> returns <tt>IntegerClass</tt> (the object table
+index of <tt>SmallInteger</tt>) if its argument is an immediate integer.
+<p><i>object pointer access</i>
+</p><dl>
+<dd>
+<b>fetchPointer: fieldIndex ofObject: objectPointer</b></dd>
+
+<dl>
+<dd>
+^self heapChunkOf: objectPointer word: HeaderSize + fieldIndex</dd>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>storePointer: fieldIndex ofObject: objectPointer withValue: valuePointer</b></dd>
+
+<dl>
+<dd>
+| chunkIndex |</dd>
+
+<dd>
+chunkIndex := HeaderSize + fieldIndex.</dd>
+
+<dd>
+self countUp: valuePointer.</dd>
+
+<dd>
+self countDown: (self heapChunkOf: objectPointer word: chunkIndex).</dd>
+
+<dd>
+^self heapChunkOf: objectPointer word: chunkIndex put: valuePointer</dd>
+</dl>
+</dl>
+<i>word access</i>
+<dl>
+<dd>
+<b>fetchWord: wordIndex ofObject: objectPointer</b></dd>
+
+<dl>
+<dd>
+^self heapChunkOf: objectPointer word: HeaderSize + wordIndex</dd>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>storeWord: wordIndex ofObject: objectPointer withValue: valueWord</b></dd>
+
+<dl>
+<dd>
+^self heapChunkOf: objectPointer word: HeaderSize + wordIndex put: valueWord</dd>
+</dl>
+</dl>
+<i>byte access</i>
+<dl>
+<dd>
+<b>fetchByte: byteIndex ofObject: objectPointer</b></dd>
+
+<dl>
+<dd>
+^self heapChunkOf: objectPointer byte: (HeaderSize * 2 + byteIndex)</dd>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>storeByte: byteIndex ofObject: objectPointer withValue: valueByte</b></dd>
+
+<dl>
+<dd>
+^self heapChunkOf: objectPointer byte: (HeaderSize * 2 + byteIndex) put:
+valueByte</dd>
+</dl>
+</dl>
+<i>reference counting</i>
+<dl>
+<dd>
+<b>increaseReferencesTo: objectPointer</b></dd>
+
+<dl>
+<dd>
+self countUp: objectPointer</dd>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>decreaseReferencesTo: objectPointer</b></dd>
+
+<dl>
+<dd>
+self countDown: objectPointer</dd>
+</dl>
+</dl>
+<i>class pointer access</i>
+<dl>
+<dd>
+<b>fetchClassOf: objectPointer</b></dd>
+
+<dl>
+<dd>
+(self isIntegerObject: objectPointer)</dd>
+
+<dl>
+<dd>
+ifTrue: [^IntegerClass]</dd>
+
+<dd>
+ifFalse: [^self classBitsOf: objectPointer]</dd>
+</dl>
+</dl>
+</dl>
+<i>length access</i>
+<dl>
+<dd>
+<b>fetchWordLengthOf: objectPointer</b></dd>
+
+<dl>
+<dd>
+^(self sizeBitsOf: objectPointer) - HeaderSize</dd>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>fetchByteLengthOf: objectPointer</b></dd>
+
+<dl>
+<dd>
+^(self fetchWordLengthOf: objectPointer) * 2 - (self oddBitOf: objectPointer)</dd>
+</dl>
+</dl>
+<i>object creation</i>
+<dl>
+<dd>
+<b>instantiateClass: classPointer withPointers: length</b></dd>
+
+<dl>
+<dd>
+| size extra |</dd>
+
+<dd>
+size := HeaderSize + length.</dd>
+
+<dd>
+extra := size &lt; HugeSize ifTrue: [0] ifFalse: [1].</dd>
+
+<dd>
+^self allocate: size odd: 0 pointer: 1 extra: extra class: classPointer</dd>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>instantiateClass: classPointer withWords: length</b></dd>
+
+<dl>
+<dd>
+| size |</dd>
+
+<dd>
+size := HeaderSize + length.</dd>
+
+<dd>
+^self allocate: size odd: 0 pointer: 0 extra: 0 class: classPointer</dd>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>instantiateClass: classPointer withBytes: length</b></dd>
+
+<dl>
+<dd>
+| size |</dd>
+
+<dd>
+size := HeaderSize + ((length + 1) / 2).</dd>
+
+<dd>
+^self allocate: size odd: length \\ 2 pointer: 0 extra: 0 class: classPointer</dd>
+</dl>
+</dl>
+<i>instance enumeration</i>
+<dl>
+<dd>
+<b>initialInstanceOf: classPointer</b></dd>
+
+<dl>
+<dd>
+0 to: ObjectTableSize - 2 by: 2 do:</dd>
+
+<dl>
+<dd>
+[:pointer |</dd>
+
+<dd>
+(self freeBitOf: pointer) = 0</dd>
+
+<dl>
+<dd>
+ifTrue: [(self fetchClassOf: pointer) = classPointer</dd>
+
+<dl>
+<dl>
+<dd>
+ifTrue: [^pointer]]].</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+
+<dd>
+^NilPointer</dd>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>instanceAfter: objectPointer</b></dd>
+
+<dl>
+<dd>
+| classPointer |</dd>
+
+<dd>
+classPointer := self fetchClassOf: objectPointer.</dd>
+
+<dd>
+objectPointer to: ObjectTableSize - 2 by: 2 do:</dd>
+
+<dl>
+<dd>
+[:pointer |</dd>
+
+<dd>
+(self freeBitOf: pointer) = 0</dd>
+
+<dl>
+<dd>
+ifTrue: [(self fetchClassOf: pointer) = classPointer</dd>
+
+<dl>
+<dl>
+<dd>
+ifTrue: [^pointer]]].</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+
+<dd>
+^NilPointer</dd>
+</dl>
+</dl>
+<i>pointer swapping</i>
+<dl>
+<dd>
+<b>swapPointersOf: firstPointer and: secondPointer</b></dd>
+
+<dl>
+<dd>
+| firstSegment firstLocation firstPointer firstOdd |</dd>
+
+<dd>
+firstSegment := self segmentBitsOf: firstPointer.</dd>
+
+<dd>
+firstLocation := self locationBitsOf: firstPointer.</dd>
+
+<dd>
+firstPointer := self pointerBitOf: firstPointer.</dd>
+
+<dd>
+firstOdd := self oddBitOf: firstPointer.</dd>
+
+<dd>
+self segmentBitsOf: firstPointer put: (self segmentBitsOf: secondPointer).</dd>
+
+<dd>
+self locationBitsOf: firstPointer put: (self locationBitsOf: second Pointer).</dd>
+
+<dd>
+self pointerBitOf: firstPointer put: (self pointerBitOf: secondPointer).</dd>
+
+<dd>
+self oddBitOf: firstPointer put: (self oddBitOf: secondPointer).</dd>
+
+<dd>
+self segmentBitsOf: secondPointer put: firstSegment.</dd>
+
+<dd>
+self locationBitsOf: secondPointer put: firstLocation.</dd>
+
+<dd>
+self pointerBitOf: secondPointer put: firstPointer.</dd>
+
+<dd>
+self oddBitOf: secondPointer put: firstOdd</dd>
+</dl>
+</dl>
+<i>integer access</i>
+<dl>
+<dd>
+<b>integerValueOf: objectPointer</b></dd>
+
+<dl>
+<dd>
+^objectPointer / 2</dd>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>integerObjectOf: value</b></dd>
+
+<dl>
+<dd>
+^(value bitShift: 1) + 1</dd>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>isIntegerObject: objectPointer</b></dd>
+
+<dl>
+<dd>
+^(objectPointer bitAnd: 1) = 1</dd>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>isIntegerValue: valueWord</b></dd>
+
+<dl>
+<dd>
+^valueWord &lt;= -16384 and: [valueWord &gt; 16834]</dd>
+</dl>
+</dl>
+
+<hr size="1" width="100%">
+<center><font color="#3333FF">[<a href="../bluebook_imp_toc.html">TOC</a>]
+[<a href="../bluebook/bluebook_chapter26.html">26</a>] [<a href="../bluebook/bluebook_chapter27.html">27</a>]
+[<a href="../bluebook/bluebook_chapter28.html">28</a>] [<a href="../bluebook/bluebook_chapter29.html">29</a>]
+[<a href="../bluebook/bluebook_chapter30.html#top_of_30">30</a>]</font></center>
+
+
+</body></html>

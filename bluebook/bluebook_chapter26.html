@@ -1,0 +1,3597 @@
+<!DOCTYPE html PUBLIC "-//w3c//dtd html 4.0 transitional//en">
+<html><head>
+<!-- base href="http://users.ipa.net.wstub.archive.org/~dwighth/smalltalk/bluebook/bluebook_chapter26.html" -->
+
+   <meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+   <meta name="GENERATOR" content="Mozilla/4.5 [en] (WinNT; I) [Netscape]">
+   <meta name="Author" content="Dwight Hughes">
+   <title>Blue Book Chapter 26</title>
+</head>
+<body alink="#FF0000" bgcolor="#FFF7E1" link="#0000EE" text="#000000" vlink="#551A8B">
+
+<center><a name="top_of_26"></a><font color="#3333FF">[<a href="../bluebook_imp_toc.html">TOC</a>]
+</font><font color="#000000">26</font><font color="#3333FF">
+[<a href="../bluebook/bluebook_chapter27.html">27</a>] [<a href="../bluebook/bluebook_chapter28.html">28</a>]
+[<a href="../bluebook/bluebook_chapter29.html">29</a>] [<a href="../bluebook/bluebook_chapter30.html">30</a>]</font>
+<br>
+<hr size="1" width="100%"><font color="#000099"><font size="+4">26</font></font>
+<br><font color="#3333FF"><font size="+3">The Implementation</font></font>
+<hr size="1" width="100%"></center>
+
+<dl>
+<dl>
+<dl>
+<dd>
+<b><font color="#3333FF"><font size="+1"><a href="../bluebook/bluebook_chapter26.html#TheCompiler26">The Compiler</a></font></font></b></dd>
+
+<dl>
+<dd>
+<i><font color="#000099"><a href="../bluebook/bluebook_chapter26.html#compiled_methods26">Compiled Methods</a></font></i></dd>
+
+<dd>
+<i><font color="#000099"><a href="../bluebook/bluebook_chapter26.html#TheBytecodes26">The Bytecodes</a></font></i></dd>
+</dl>
+
+<dd>
+<b><font color="#3333FF"><font size="+1"><a href="../bluebook/bluebook_chapter26.html#TheInterpreter26">The
+Interpreter</a></font></font></b></dd>
+
+<dl>
+<dd>
+<i><font color="#000099"><a href="../bluebook/bluebook_chapter26.html#Contexts26">Contexts</a></font></i></dd>
+
+<dd>
+<i><font color="#000099"><a href="../bluebook/bluebook_chapter26.html#BlockContexts26">Block Contexts</a></font></i></dd>
+
+<dd>
+<i><font color="#000099"><a href="../bluebook/bluebook_chapter26.html#Messages26">Messages</a></font></i></dd>
+
+<dd>
+<i><font color="#000099"><a href="../bluebook/bluebook_chapter26.html#PrimitiveMethods26">Primitive Methods</a></font></i></dd>
+</dl>
+
+<dd>
+<b><font color="#3333FF"><font size="+1"><a href="../bluebook/bluebook_chapter26.html#TheObjectMemory26">The
+Object Memory</a></font></font></b></dd>
+
+<dd>
+<b><font color="#3333FF"><font size="+1"><a href="../bluebook/bluebook_chapter26.html#TheHardware26">The Hardware</a></font></font></b></dd>
+</dl>
+</dl>
+</dl>
+
+<hr align="LEFT" size="1" width="100%">Two major components of the Smalltalk-80
+system can be distinguished: the
+<i>virtual image</i> and the <i>virtual
+machine.</i>
+<ol>
+<li>
+The <i>virtual image</i> consists of all of the objects in the system.</li>
+
+<li>
+The <i>virtual machine</i> consists of the hardware devices and machine
+language (or microcode) routines that give dynamics to the objects in the
+virtual image.</li>
+</ol>
+The system implementer's task is to create a virtual machine. A virtual
+image can then be loaded into the virtual machine and the Smalltalk-80
+system becomes the interactive entity described in earlier chapters.
+<br>&nbsp;&nbsp;&nbsp; The overview of the Smalltalk-80 implementation
+given in this chapter is organized in a top-down fashion, starting with
+the source methods written by programmers. These methods are translated
+by a <i>compiler</i> into sequences of eight-bit instructions called <i>bytecodes</i>.
+The compiler and bytecodes are the subject of this chapter's first section.
+The bytecodes produced by the compiler are instructions for an <i>interpreter</i>,
+which is described in the second section. Below the interpreter in the
+implementation is an <i>object memory</i> that stores the objects that
+make up the virtual image. The object memory is described in the third
+section of this chapter. At the bottom of any implementation is the <i>hardware</i>.
+The fourth and final section of this chapter discusses the hardware required
+to implement the interpreter and object memory. <a href="../bluebook_imp_toc.html">Chapters
+27 - 30</a> give a detailed specification of the virtual machine's interpreter
+and object memory.
+<center>
+<p>
+</p><hr size="1" width="80%"><a name="TheCompiler26"></a><b><font color="#3333FF"><font size="+2">The
+Compiler</font></font></b>
+<hr size="1" width="80%"></center>
+Source methods written by programmers are represented in the Smalltalk-80
+system as instances of <tt>String</tt>. The <tt>Strings</tt> contain sequences
+of characters that conform to the syntax introduced in the first part of
+this book. For example, the following source method might describe how
+instances of class <tt>Rectangle</tt> respond to the unary message <tt>center</tt>.
+The <tt>center</tt> message is used to find the <tt>Point</tt> equidistant
+from a <tt>Rectangle's</tt> four sides.
+<dl>
+<dd>
+<b>center</b></dd>
+
+<dl>
+<dd>
+^origin + corner / 2</dd>
+</dl>
+</dl>
+Source methods are translated by the system's <i>compiler</i> into sequences
+of instructions for a stack-oriented interpreter. The instructions are
+eight-bit numbers called <i>bytecodes</i>. For example, the bytecodes corresponding
+to the source method shown above are,
+<dl>
+<dd>
+<tt>0, 1, 176, 119, 185, 124</tt></dd>
+</dl>
+Since a bytecode's value gives us little indication of its meaning to the
+interpreter, this chapter will accompany lists of bytecodes with comments
+about their functions. Any part of a bytecode's comment that depends on
+the context of the method in which it appears will be parenthesized. The
+unparenthesized part of the comment describes its general function. For
+example, the bytecode 0 always instructs the interpreter to push the value
+of the receiver's first instance variable on to its stack. The fact that
+the variable is named <tt>origin</tt> depends on the fact that this method
+is used by <tt>Rectangles </tt>, so <tt>origin</tt> is parenthesized. The
+commented form of the bytecodes for <tt>Rectangle</tt> <tt>center</tt>
+is shown below.
+<br>&nbsp;
+<table border="0" cellspacing="0" width="100%">
+<tbody><tr>
+<td colspan="3"><b>Rectangle center</b></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP" width="2%"></td>
+
+<td align="LEFT" valign="TOP" width="6%"><b><tt>0</tt></b></td>
+
+<td align="LEFT" valign="TOP">push the value of the receiver's first instance
+variable (<tt>origin</tt>) onto the stack</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td align="LEFT" valign="TOP"><b><tt>1</tt></b></td>
+
+<td align="LEFT" valign="TOP">push the value of the receiver's second instance
+variable (<tt>corner</tt>) onto the stack</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td align="LEFT" valign="TOP"><b><tt>176</tt></b></td>
+
+<td align="LEFT" valign="TOP">send a binary message with the selector <tt>+</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td align="LEFT" valign="TOP"><b><tt>119</tt></b></td>
+
+<td align="LEFT" valign="TOP">push the <tt>SmallInteger</tt> <tt>2</tt> onto
+the stack</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td align="LEFT" valign="TOP"><b><tt>185</tt></b></td>
+
+<td align="LEFT" valign="TOP">send a binary message with the selector <tt>/</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td align="LEFT" valign="TOP"><b><tt>124</tt></b></td>
+
+<td align="LEFT" valign="TOP">return the object on top of the stack as the
+value of the message (<tt>center</tt>)
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+</tr>
+</tbody></table>
+The stack mentioned in some of the bytecodes is used for several purposes.
+In this method, it is used to hold the receiver, arguments, and results
+of the two messages that are sent. The stack is also used as the source
+of the result to be returned from the center method. The stack is maintained
+by the interpreter and will be described in greater detail in the next
+section. A description of all the types of bytecodes will appear at the
+end of this section.
+<br>&nbsp;&nbsp;&nbsp; A programmer does not interact directly with the
+compiler. When a new source method is added to a class (<tt>Rectangle</tt>
+in this example), the class asks the compiler for an instance of <tt>CompiledMethod
+</tt>containing
+the bytecode translation of the source method. The class provides the compiler
+with some necessary information not given in the source method, including
+the names of the receiver's instance variables and the dictionaries containing
+accessible shared variables (global, class, and pool variables). The compiler
+translates the source text into a <tt>CompiledMethod
+</tt>and the class
+stores the method in its message dictionary. For example, the <tt>CompiledMethod</tt>
+shown above is stored in <tt>Rectangle's</tt> message dictionary associated
+with the selector <tt>center</tt>.
+<br>&nbsp;&nbsp;&nbsp; Another example of the bytecodes compiled from a
+source method illustrates the use of a store bytecode. The message <tt>extent:</tt>
+to a <tt>Rectangle</tt> changes the receiver's width and height to be equal
+to the x and y coordinates of the argument (a <tt>Point</tt>). The receiver's
+upper left corner (<tt>origin</tt>) is kept the same and the lower right
+corner (<tt>corner</tt>) is moved.
+<dl>
+<dd>
+<b>extent: newExtent</b></dd>
+
+<dl>
+<dd>
+corner := origin + newExtent</dd>
+</dl>
+</dl>
+
+<table border="0" cellspacing="0" width="100%">
+<tbody><tr>
+<td colspan="3" align="LEFT" valign="TOP"><b>Rectangle extent:&nbsp;</b></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP" width="2%"></td>
+
+<td align="LEFT" valign="TOP" width="6%"><b><tt>0</tt></b></td>
+
+<td align="LEFT" valign="TOP">push the value of the receiver's first instance
+variable (<tt>origin</tt>) onto the stack&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td align="LEFT" valign="TOP"><b><tt>16</tt></b></td>
+
+<td align="LEFT" valign="TOP">push the argument (<tt>newExtent</tt>) onto the
+stack&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td align="LEFT" valign="TOP"><b><tt>176</tt></b></td>
+
+<td align="LEFT" valign="TOP">send a binary message with the selector <tt>+&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td align="LEFT" valign="TOP"><b><tt>97</tt></b></td>
+
+<td align="LEFT" valign="TOP">pop the top object off of the stack and store
+it in the receiver's second instance variable (<tt>corner</tt>)&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td align="LEFT" valign="TOP"><b><tt>120</tt></b></td>
+
+<td align="LEFT" valign="TOP">return the receiver as the value of the message
+(<tt>extent:</tt>)
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+</tr>
+</tbody></table>
+The forms of source methods and compiled bytecodes are different in several
+respects. The variable names in a source method are converted into instructions
+to push objects on the stack, the selectors are converted into instructions
+to send messages, and the uparrow is converted into an instruction to return
+a result. The order of the corresponding components is also different in
+a source method and compiled bytecodes. Despite these differences in form,
+the source method and compiled bytecodes describe the same actions.
+<p><a name="compiled_methods26"></a><b><i><font color="#000099"><font size="+1">Compiled
+Methods</font></font></i></b>
+<br>
+</p><hr align="LEFT" noshade="NOSHADE" size="1" width="60%">The compiler creates
+an instance of <tt>CompiledMethod</tt> to hold the bytecode translation
+of a source method. In addition to the bytecodes themselves, a <tt>CompiledMethod</tt>
+contains a set of objects called its literal frame. The literal frame contains
+any objects that could not be referred to directly by bytecodes. All of
+the objects in <tt>Rectangle center</tt> and <tt>Rectangle</tt> <tt>extent:</tt>
+were referred to directly by bytecodes, so the <tt>CompiledMethods</tt>
+for these methods do not need literal frames. As an example of a <tt>CompiledMethod</tt>
+with a literal frame, consider the method for <tt>Rectangle</tt> <tt>intersects:</tt>.
+The <tt>intersects:</tt> message inquires whether one <tt>Rectangle</tt>
+(the receiver) overlaps another <tt>Rectangle</tt> (the argument).
+<dl>
+<dd>
+<b>intersects: aRectangle</b></dd>
+
+<dl>
+<dd>
+^(origin max: aRectangle origin) &lt; (corner min: aRectangle corner)</dd>
+</dl>
+</dl>
+The four message selectors, <tt>max:</tt>, <tt>origin</tt>, <tt>min:</tt>,
+and <tt>corner</tt> are not in the set that can be directly referenced
+by bytecodes. These selectors are included in the <tt>CompiledMethod's</tt>
+literal frame and the send bytecodes refer to the selectors by their position
+in the literal frame. A <tt>CompiledMethod's</tt> literal frame will be
+shown after its bytecodes.
+<br>&nbsp;
+<table border="0" cellspacing="0" width="100%">
+<tbody><tr>
+<td colspan="4" align="LEFT" valign="TOP"><b>Rectangle intersects:</b></td>
+</tr>
+
+<tr>
+<td width="2%"></td>
+
+<td width="6%"><b><tt>0</tt></b></td>
+
+<td colspan="2">push the value of the receiver's first instance variable
+(<tt>origin</tt>) onto the stack&nbsp;</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td><b><tt>16</tt></b></td>
+
+<td colspan="2">push the argument (<tt>aRectangle</tt>)&nbsp;</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td><b><tt>209</tt></b></td>
+
+<td colspan="2">send a unary message with the selector in the second literal
+frame location (<tt>origin</tt>)&nbsp;</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td><b><tt>224</tt></b></td>
+
+<td colspan="2">send a single argument message with the selector in the
+first literal frame location (<tt>max:</tt>)&nbsp;</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td><b><tt>1</tt></b></td>
+
+<td colspan="2">push the value of the receiver's second instance variable
+(<tt>corner</tt>) onto the stack</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td><b><tt>16</tt></b></td>
+
+<td colspan="2">push the argument (<tt>aRectangle</tt>) onto the stack&nbsp;</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td><b><tt>211</tt></b></td>
+
+<td colspan="2">send a unary message with the selector in the fourth literal
+frame location (<tt>corner</tt>)&nbsp;</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td><b><tt>226</tt></b></td>
+
+<td colspan="2">send a single argument message with the selector in the
+third literal frame location (<tt>min:</tt>)&nbsp;</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td><b><tt>178</tt></b></td>
+
+<td colspan="2">send a binary message with the selector <tt>&lt;</tt></td>
+</tr>
+
+<tr>
+<td></td>
+
+<td><b><tt>124</tt></b></td>
+
+<td colspan="2">return the object on top of the stack as the value of the
+message (<tt>intersects:</tt>)</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td><b>literal frame</b>
+<br><tt>#max:</tt>
+<br><tt>#origin</tt>
+<br><tt>#min:</tt>
+<br><tt>#corner</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp;</tt></td>
+
+<td></td>
+</tr>
+</tbody></table>
+The categories of objects that can be referred to directly by bytecodes
+are:
+<ul>
+<li>
+the receiver and arguments of the invoking message</li>
+
+<li>
+the values of the receiver's instance variables</li>
+
+<li>
+the values of any temporary variables required by the method</li>
+
+<li>
+seven special constants (<tt>true</tt>, <tt>false</tt>, <tt>nil</tt>, <tt>-1</tt>,
+<tt>0</tt>,
+<tt>1</tt>,
+and <tt>2</tt>)</li>
+
+<li>
+32 special message selectors</li>
+</ul>
+The 32 special message selectors are listed below.
+<br>&nbsp;
+<table border="0" cellpadding="2" cellspacing="6" cols="5" width="60%">
+<tbody><tr>
+<td width="8%"></td>
+
+<td align="LEFT" valign="TOP" width="23%"><tt>+</tt></td>
+
+<td align="LEFT" valign="TOP" width="23%"><tt>-</tt></td>
+
+<td align="LEFT" valign="TOP" width="23%"><tt>&lt;</tt></td>
+
+<td align="LEFT" valign="TOP" width="23%"><tt>&gt;</tt></td>
+</tr>
+
+<tr>
+<td></td>
+
+<td><tt>&lt;=</tt></td>
+
+<td><tt>&gt;=</tt></td>
+
+<td><tt>=</tt></td>
+
+<td><tt>~=</tt></td>
+</tr>
+
+<tr>
+<td></td>
+
+<td><tt>*</tt></td>
+
+<td><tt>/</tt></td>
+
+<td><tt>\</tt></td>
+
+<td><tt>@</tt></td>
+</tr>
+
+<tr>
+<td></td>
+
+<td><tt>bitShift:</tt></td>
+
+<td><tt>\\</tt></td>
+
+<td><tt>bitAnd:</tt></td>
+
+<td><tt>bitOr:</tt></td>
+</tr>
+
+<tr>
+<td></td>
+
+<td><tt>(at:)</tt></td>
+
+<td><tt>(at:put:)</tt></td>
+
+<td><tt>(size)</tt></td>
+
+<td><tt>(next)</tt></td>
+</tr>
+
+<tr>
+<td></td>
+
+<td><tt>(nextPut:)</tt></td>
+
+<td><tt>(atEnd)</tt></td>
+
+<td><tt>==</tt></td>
+
+<td><tt>class</tt></td>
+</tr>
+
+<tr>
+<td></td>
+
+<td><tt>blockCopy:</tt></td>
+
+<td><tt>value</tt></td>
+
+<td><tt>value:</tt></td>
+
+<td><tt>(do:)</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td align="LEFT" valign="TOP"><tt>(new)</tt></td>
+
+<td align="LEFT" valign="TOP"><tt>(new:)</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp;</tt></td>
+
+<td align="LEFT" valign="TOP"><tt>(x)</tt></td>
+
+<td align="LEFT" valign="TOP"><tt>(y)</tt></td>
+</tr>
+</tbody></table>
+The selectors in parentheses may be replaced with other selectors by modifying
+the compiler and recompiling all methods in the system. The other selectors
+are built into the virtual machine.
+<br>&nbsp;&nbsp;&nbsp; Any objects referred to in a <tt>CompiledMethod's</tt>
+bytecodes that do not fall into one of the categories above must appear
+in its literal frame. The objects ordinarily contained in a literal frame
+are
+<ul>
+<li>
+shared variables (global, class, and pool)</li>
+
+<li>
+most literal constants (numbers, characters, strings, arrays, and symbols)</li>
+
+<li>
+most message selectors (those that are not special)</li>
+</ul>
+Objects of these three types may be intermixed in the literal frame. If
+an object in the literal frame is referenced twice in the same method,
+it need only appear in the literal frame once. The two bytecodes that refer
+to the object will refer to the same location in the literal frame.
+<br>&nbsp;&nbsp;&nbsp; Two types of object that were referred to above,
+temporary variables and shared variables, have not been used in the example
+methods. The following example method for <tt>Rectangle</tt> <tt>merge:</tt>
+uses both types. The <tt>merge:</tt> message is used to find a <tt>Rectangle</tt>
+that includes the areas in both the receiver and the argument.
+<dl>
+<dd>
+<b>merge: aRectangle</b></dd>
+
+<dl>
+<dd>
+| minPoint maxPoint |</dd>
+
+<dd>
+minPoint := origin min: aRectangle origin.</dd>
+
+<dd>
+maxPoint := corner max: aRectangle corner.</dd>
+
+<dd>
+^Rectangle origin: minPoint corner: maxPoint</dd>
+</dl>
+</dl>
+When a <tt>CompiledMethod</tt> uses temporary variables (<tt>maxPoint</tt>
+and <tt>minPoint</tt> in this example), the number required is specified
+in the first line of its printed form. When a <tt>CompiledMethod</tt> uses
+a shared variable (<tt>Rectangle</tt> in this example) an instance of <tt>Association
+</tt>is
+included in its literal frame. All <tt>CompiledMethods</tt> that refer
+to a particular shared variable's name include the same <tt>Association</tt>
+in their literal frames.
+<br>&nbsp;
+<table border="0" cellspacing="0" width="100%">
+<tbody><tr>
+<td colspan="4" align="LEFT" valign="TOP"><b>Rectangle merge: </b>requires
+2 temporary variables</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP" width="2%"></td>
+
+<td width="6%"><b><tt>0</tt></b></td>
+
+<td colspan="2">push the value of the receiver's first instance variable
+(<tt><font color="#000000">origin</font></tt>) onto the stack</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>16</tt></b></td>
+
+<td colspan="2">push the contents of the first temporary frame location
+(the argument <tt>aRectangle</tt>) onto the stack&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>209</tt></b></td>
+
+<td colspan="2">send a unary message with the selector in the second literal
+frame location (<tt>origin</tt>)&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>224</tt></b></td>
+
+<td colspan="2">send the single argument message with the selector in the
+first literal frame location (<tt>min:</tt>)&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>105</tt></b></td>
+
+<td colspan="2">pop the top object off of the stack and stare in the second
+temporary frame location (<tt>minPoint</tt>)&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>1</tt></b></td>
+
+<td colspan="2">push the value of the receiver's second instance variable
+(<tt>corner</tt>) onto the stack&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>16</tt></b></td>
+
+<td colspan="2">push the contents of the first temporary frame location
+(the argument <tt>aRectangle</tt>) onto the stack&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>211</tt></b></td>
+
+<td colspan="2">send a unary message with the selector in the fourth literal
+frame location (<tt>corner</tt>)&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>226</tt></b></td>
+
+<td colspan="2">send a single argument message with the selector in the
+third literal frame location (<tt>max:</tt>)</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>106</tt></b></td>
+
+<td colspan="2">pop the top object off of the stack and store it in the
+third temporary frame location (<tt>maxPoint</tt>)</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>69</tt></b></td>
+
+<td colspan="2">push the value of the shared variable in the sixth literal
+frame location (<tt>Rectangle</tt>) onto the stack&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>17</tt></b></td>
+
+<td colspan="2">push the contents of the second temporary frame location
+(<tt>minPoint</tt>) onto the stack&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>18</tt></b></td>
+
+<td colspan="2">push the contents of the third temporary frame location
+(<tt>maxPoint</tt>) onto the stack&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>244</tt></b></td>
+
+<td colspan="2">send the two argument message with the selector in the
+fifth literal frame location (<tt>origin:corner:</tt>)&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>124</tt></b></td>
+
+<td colspan="2">return the object on top of the stack as the value of the
+message (<tt>merge:</tt>)&nbsp;</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td align="LEFT" valign="TOP"><b>literal frame</b>
+<br>#min:&nbsp;
+<br>#origin&nbsp;
+<br>#max:&nbsp;
+<br>#corner&nbsp;
+<br>#origin:corner:&nbsp;
+<br>Association: #Rectangle -&gt; Rectangle&nbsp;
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+
+<td></td>
+</tr>
+</tbody></table>
+<img src="bluebook_chapter26_files/bluesquare.gif" align="TEXTTOP" height="20" width="20"><b><font size="+1"><i>Temporary
+Variables</i>&nbsp;</font> </b>Temporary variables are created for a particular
+execution of a <tt>CompiledMethod</tt> and cease to exist when the execution
+is complete. The <tt>CompiledMethod</tt> indicates to the interpreter how
+many temporary variables will be required. The arguments of the invoking
+message and the values of the temporary variables are stored together in
+the temporary frame. The arguments are stored first and the temporary variable
+values immediately after. They are accessed by the same type of bytecode
+(whose comments refer to a temporary frame location). Since <tt>merge:</tt>
+takes a single argument, its two temporary variables use the second and
+third locations in the temporary frame. The compiler enforces the fact
+that the values of the argument names cannot be changed by never issuing
+a store bytecode referring to the part of the temporary frame inhabited
+by the arguments.
+<p><img src="bluebook_chapter26_files/bluesquare.gif" align="TEXTTOP" height="20" width="20"><b><i><font size="+1">Shared
+Variables</font>&nbsp; </i></b>Shared variables are found in dictionaries.
+</p><ul>
+<li>
+<i>global variables</i> in a dictionary whose names can appear in any method</li>
+
+<li>
+<i>class variables</i> in a dictionary whose names can only appear in the
+methods of a single class and its subclasses</li>
+
+<li>
+<i>pool variables</i> in a dictionary whose names can appear in the methods
+of several classes</li>
+</ul>
+Shared variables are the individual associations that make up these dictionaries.
+The system represents associations in general, and shared variables in
+particular, with instances of <tt>Association</tt>. When the compiler encounters
+the name of a shared variable in a source method, the <tt>Association</tt>
+with the same name is included in the <tt>CompiledMethod's </tt>literal
+frame. The bytecodes that access shared variables indicate the location
+of an <tt>Association</tt> in the literal frame. The actual value of the
+variable is stored in an instance variable of the <tt>Association</tt>.
+In the <tt>CompiledMethod</tt> for <tt>Rectangle merge:</tt> shown above,
+class <tt>Rectangle</tt> is referenced by including the <tt>Association</tt>
+from the global dictionary whose name is the symbol <tt>#Rectangle</tt>
+and whose value is the class <tt>Rectangle</tt>.
+<p><a name="TheBytecodes26"></a><b><i><font color="#000099"><font size="+1">The
+Bytecodes
+</font></font></i></b></p><hr align="LEFT" noshade="noshade" size="1" width="60%">The interpreter
+understands 256 bytecode instructions that fall into five categories: pushes,
+stores, sends, returns, and jumps. This section gives a general description
+of each type of bytecode without going into detail about which bytecode
+represents which instruction. <a href="http://classic-web.archive.org/web/20070630105605/http://users.ipa.net/%7Edwighth/smalltalk/bluebook/bluebook_chapter28.html">Chapter
+28</a> describes the exact meaning of each bytecode. Since more than 256
+instructions for the interpreter are needed, some of the bytecodes take
+extensions. An extension is one or two bytes following the bytecode that
+further specify the instruction. An extension is not an instruction on
+its own, it is only a part of an instruction.
+<p><img src="bluebook_chapter26_files/bluesquare.gif" align="TEXTTOP" height="20" width="20"><b><i><font size="+1">Push
+Bytecodes</font></i></b>&nbsp;&nbsp; A push bytecode indicates the source
+of an object to be added to the top of the interpreter's stack. The sources
+include
+</p><ul>
+<li>
+the receiver of the message that invoked the <tt>CompiledMethod</tt></li>
+
+<li>
+the instance variables of the receiver</li>
+
+<li>
+the temporary frame (the arguments of the message and the temporary variables)</li>
+
+<li>
+the literal frame of the <tt>CompiledMethod</tt></li>
+
+<li>
+the top of the stack (i.e., this bytecode duplicates the top of stack)</li>
+</ul>
+Examples of most of the types of push bytecode have been included in the
+examples. The bytecode that duplicates the top of the stack is used to
+implement cascaded messages.
+<br>&nbsp;&nbsp;&nbsp; Two different types of push bytecode use the literal
+frame as their source. One is used to push literal constants and the other
+to push the value of shared variables. Literal constants are stored directly
+in the literal frame, but the values of shared variables are stored in
+an <tt>Association</tt> that is pointed to by the literal frame. The following
+example method uses one shared variable and one literal constant.
+<dl>
+<dd>
+<b>incrementIndex</b></dd>
+
+<dl>
+<dd>
+^Index := Index + 4</dd>
+</dl>
+</dl>
+
+<table border="0" cellspacing="0" width="100%">
+<tbody><tr>
+<td colspan="4" align="LEFT" valign="TOP"><b>ExampleClass incrementIndex</b></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP" width="2%"></td>
+
+<td width="6%"><b><tt>64</tt></b></td>
+
+<td colspan="2">push the value of the shared variable in the first literal
+frame location (<tt>Index</tt>) onto the stack</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>33</tt></b></td>
+
+<td colspan="2">push the constant in the second literal frame location
+(<tt>4</tt>) onto the stack</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>176</tt></b></td>
+
+<td colspan="2">send a binary message with the selector <tt>+</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>129,192</tt></b></td>
+
+<td colspan="2">store the object on top of the stack in the shared variable
+in the first literal frame location (<tt>Index</tt>)</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>124</tt></b></td>
+
+<td colspan="2">return the object on top of the stack as the value of the
+message (<tt>incrementIndex</tt>)</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td align="LEFT" valign="TOP"><b>literal frame</b>
+<br>Association: #Index -&gt; 260&nbsp;
+<br>4
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+
+<td></td>
+</tr>
+</tbody></table>
+<img src="bluebook_chapter26_files/bluesquare.gif" align="TEXTTOP" height="20" width="20"><b><i><font size="+1">Store
+Bytecodes</font></i></b>&nbsp;&nbsp; The bytecodes compiled from an assignment
+expression end with a store bytecode. The bytecodes before the store bytecode
+compute the new value of a variable and leave it on top of the stack. A
+store bytecode indicates the variable whose value should be changed. The
+variables that can be changed are
+<ul>
+<li>
+the instance variables of the receiver</li>
+
+<li>
+temporary variables</li>
+
+<li>
+shared variables</li>
+</ul>
+Some of the store bytecodes remove the object to be stored from the stack,
+and others leave the object on top of the stack, after storing it.
+<p><img src="bluebook_chapter26_files/bluesquare.gif" align="TEXTTOP" height="20" width="20"><b><i><font size="+1">Send
+Bytecodes</font></i></b>&nbsp;&nbsp; A send bytecode specifies the selector
+of a message to be sent and how many arguments it should have. The receiver
+and arguments of the message are taken off the interpreter's stack, the
+receiver from below the arguments. By the time the bytecode following the
+send is executed, the message's result will have replaced its receiver
+and arguments on the top of the stack. The details of sending messages
+and returning results is the subject of the next sections of this chapter.
+A set of 32 send bytecodes refer directly to the special selectors listed
+earlier. The other send bytecodes refer to their selectors in the literal
+frame.
+</p><p><img src="bluebook_chapter26_files/bluesquare.gif" align="TEXTTOP" height="20" width="20"><b><i><font size="+1">Return
+Bytecodes</font>&nbsp;</i></b>&nbsp;&nbsp; When a return bytecode is encountered,
+the <tt>CompiledMethod</tt> in which it was found has been completely executed.
+Therefore a value is returned for the message that invoked that <tt>CompiledMethod</tt>.
+The value is usually found on top of the stack. Four special return bytecodes
+return the message receiver (<tt>self</tt>), <tt>true</tt>, <tt>false</tt>,
+and <tt>nil</tt>.
+</p><p><img src="bluebook_chapter26_files/bluesquare.gif" align="TEXTTOP" height="20" width="20"><b><i><font size="+1">Jump
+Bytecodes</font>&nbsp;</i></b>&nbsp;&nbsp; Ordinarily, the interpreter
+executes the bytecodes sequentially in the order they appear in a <tt>CompiledMethod</tt>.
+The jump bytecodes indicate that the next bytecode to execute is not the
+one following the jump. There are two varieties of jump, <i>unconditional</i>
+and <i>conditional</i>. The unconditional jumps transfer control whenever
+they are encountered. The conditional jumps will only transfer control
+if the top of the stack is a specified value. Some of the conditional jumps
+transfer if the top object on the stack is <tt>true</tt> and others if
+it is <tt>false</tt>. The jump bytecodes are used to implement efficient
+control structures.
+<br>&nbsp;&nbsp;&nbsp; The control structures that are so optimized by
+the compiler are conditional selection messages to Booleans (<tt>ifTrue:</tt>,
+<tt>ifFalse:
+</tt>,
+and <tt>ifTrue:ifFalse:</tt>), some of the logical operation messages to
+Booleans (<tt>and:</tt> and <tt>or:</tt>), and the conditional repetition
+messages to blocks (<tt>whileTrue:</tt> and <tt>whileFalse:</tt>). The
+jump bytecodes indicate the next bytecode to be executed relative to the
+position of the jump. In other words, they tell the interpreter how many
+bytecodes to skip. The following method for <tt>Rectangle</tt> <tt>includesPoint:</tt>
+uses a conditional jump.
+</p><dl>
+<dd>
+<b>includesPoint: aPoint</b></dd>
+
+<dl>
+<dd>
+origin &lt;= aPoint</dd>
+
+<dl>
+<dd>
+ifTrue: [^aPoint &lt; corner]</dd>
+
+<dd>
+ifFalse: [^false]</dd>
+</dl>
+</dl>
+</dl>
+
+<table border="0" cellspacing="0" width="100%">
+<tbody><tr>
+<td colspan="3" align="LEFT" valign="TOP"><b>Rectangle includesPoint:</b></td>
+
+<td></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP" width="2%"></td>
+
+<td width="6%"><b><tt>0</tt></b></td>
+
+<td>push the value of the receiver's first instance variable (<tt>origin</tt>)
+onto the stack</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>16</tt></b></td>
+
+<td>push the contents of the first temporary frame location (the argument
+<tt>aPoint</tt>)
+onto the stack&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>180</tt></b></td>
+
+<td>send a binary message with the selector <tt>&lt;=</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>155</tt></b></td>
+
+<td>jump ahead 4 bytecodes if the object on top of the stack is <tt>false</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>16</tt></b></td>
+
+<td>push the contents of the first temporary frame location (the argument
+<tt>aPoint</tt>)
+onto the stack&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>1</tt></b></td>
+
+<td>push the value of the receiver's second instance variable (<tt>corner</tt>)
+onto the stack&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>178</tt></b></td>
+
+<td>send a binary message with the selector <tt>&lt;</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>124</tt></b></td>
+
+<td>return the object on top of the stack as the value of the message (
+<tt>includesPoint:</tt>)&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td align="LEFT" valign="TOP"><b><tt>122</tt></b></td>
+
+<td align="LEFT" valign="TOP">return <tt>false</tt> as the value of the message
+(<tt>includesPoint:</tt>)
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+</tr>
+</tbody></table>
+
+<center>
+<hr size="1" width="80%"><a name="TheInterpreter26"></a><b><font color="#3333FF"><font size="+2">The
+Interpreter</font></font></b>
+<hr size="1" width="80%"></center>
+The Smalltalk-80 interpreter executes the bytecode instructions found in
+<tt>CompiledMethods</tt>.
+The interpreter uses five pieces of information and repeatedly performs
+a three-step cycle.
+<center><b>The State of the Interpreter</b></center>
+
+<ol>
+<li>
+The <tt>CompiledMethod</tt> whose bytecodes are being executed.</li>
+
+<li>
+The location of the next bytecode to be executed in that <tt>CompiledMethod</tt>.
+This is the interpreter's <i>instruction pointer</i>.</li>
+
+<li>
+The receiver and arguments of the message that invoked the <tt>CompiledMethod</tt>.</li>
+
+<li>
+Any temporary variables needed by the <tt>CompiledMethod</tt>.</li>
+
+<li>
+A stack.</li>
+</ol>
+The execution of most bytecodes involves the interpreter's stack. Push
+bytecodes tell where to find objects to add to the stack. Store bytecodes
+tell where to put objects found on the stack. Send bytecodes remove the
+receiver and arguments of messages from the stack. When the result of a
+message is computed, it is pushed onto the stack.
+<center><b>The Cycle of the Interpreter</b></center>
+
+<ol>
+<li>
+Fetch the bytecode from the <tt>CompiledMethod</tt> indicated by the instruction
+pointer.</li>
+
+<li>
+Increment the instruction pointer.</li>
+
+<li>
+Perform the function specified by the bytecode.</li>
+</ol>
+As an example of the interpreter's function, we will trace its execution
+of the <tt>CompiledMethod</tt> for <tt>Rectangle</tt> <tt>center</tt>.
+The state of the interpreter will be displayed after each of its cycles.
+The instruction pointer will be indicated by an arrow pointing at the next
+bytecode in the <tt>CompiledMethod</tt> to be executed.
+<br>&nbsp;
+<table border="0" cellspacing="0" width="100%">
+<tbody><tr>
+<td align="LEFT" valign="TOP" width="2%"><img src="bluebook_chapter26_files/right_arrow_black.gif" height="17" width="24"></td>
+
+<td align="LEFT" valign="TOP" width="6%"><b><tt>0</tt></b></td>
+
+<td align="LEFT" valign="TOP">push the value of the receiver's first instance
+variable (<tt>origin</tt>) onto the stack
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+</tr>
+</tbody></table>
+The receiver, arguments, temporary variables, and objects on the stack
+will be shown as normally printed (their responses to <tt>printString</tt>).
+For example, if a message is sent to a <tt>Rectangle</tt>, the receiver
+will be shown as
+<br>&nbsp;
+<table border="0" cellspacing="0" width="100%">
+<tbody><tr>
+<td width="2%"></td>
+
+<td width="6%"></td>
+
+<td align="LEFT" valign="TOP"><b>Receiver</b></td>
+
+<td align="LEFT" valign="TOP" width="76%">100@100 corner: 200@200
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+</tr>
+</tbody></table>
+At the start of execution, the stack is empty and the instruction pointer
+indicates the first bytecode in the <tt>CompiledMethod</tt>. This <tt>CompiledMethod</tt>
+does not require temporaries and the invoking message did not have arguments,
+so these two categories are also empty.
+<br>
+<hr size="1" width="100%">
+<table border="0" cellspacing="0" width="100%">
+<tbody><tr>
+<td colspan="4" align="LEFT" valign="TOP"><b>Method for Rectangle center</b></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP" width="2%"><img src="bluebook_chapter26_files/right_arrow_black.gif" align="ABSBOTTOM" height="17" width="24"></td>
+
+<td width="6%"><b><tt>0</tt></b></td>
+
+<td colspan="2">push the value of the receiver's first instance variable
+(<tt>origin</tt>) onto the stack&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>1</tt></b></td>
+
+<td colspan="2" align="LEFT" valign="TOP">push the value of the receiver's
+second instance variable (<tt>corner</tt>) onto the stack</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>176</tt></b></td>
+
+<td colspan="2" align="LEFT" valign="TOP">send a binary message with the selector
+<tt>+</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>119</tt></b></td>
+
+<td colspan="2" align="LEFT" valign="TOP">push the <tt>SmallInteger</tt> <tt>2
+</tt>onto
+the stack&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>185</tt></b></td>
+
+<td colspan="2">send a binary message with the selector <tt>/</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>124</tt></b></td>
+
+<td colspan="2">return the object on top of the stack as the value of the
+message (<tt>center</tt>)&nbsp;</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td align="LEFT" valign="TOP"><b>Receiver</b></td>
+
+<td align="LEFT" valign="TOP" width="80%">100@100 corner: 200@200&nbsp;</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td><b>Arguments</b></td>
+
+<td></td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td><b>Temporary Variables&nbsp;</b></td>
+
+<td></td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td align="LEFT" valign="TOP"><b>Stack</b></td>
+
+<td align="LEFT" valign="TOP"></td>
+</tr>
+</tbody></table>
+
+<hr size="1" width="100%">Following one cycle of the interpreter, the instruction
+pointer has been advanced and the value of the receiver's first instance
+variable has been copied onto the stack.
+<br>
+<hr size="1" width="100%">
+<table border="0" cellspacing="0" width="100%">
+<tbody><tr>
+<td colspan="4" align="LEFT" valign="TOP"><b>Method for Rectangle center</b></td>
+</tr>
+
+<tr>
+<td width="2%"></td>
+
+<td width="6%"><b><tt>0</tt></b></td>
+
+<td colspan="2">push the value of the receiver's first instance variable
+(<tt>origin</tt>) onto the stack&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"><img src="bluebook_chapter26_files/right_arrow_black.gif" height="17" width="24"></td>
+
+<td><b><tt>1</tt></b></td>
+
+<td colspan="2" align="LEFT" valign="TOP">push the value of the receiver's
+second instance variable (<tt>corner</tt>) onto the stack</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>176</tt></b></td>
+
+<td colspan="2" align="LEFT" valign="TOP">send a binary message with the selector
+<tt>+</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>119</tt></b></td>
+
+<td colspan="2" align="LEFT" valign="TOP">push the <tt>SmallInteger</tt> <tt>2
+</tt>onto
+the stack&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>185</tt></b></td>
+
+<td colspan="2">send a binary message with the selector <tt>/</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>124</tt></b></td>
+
+<td colspan="2">return the object on top of the stack as the value of the
+message (<tt>center</tt>)&nbsp;</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td align="LEFT" valign="TOP"><b>Receiver</b></td>
+
+<td align="LEFT" valign="TOP" width="80%">100@100 corner: 200@200&nbsp;</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td><b>Arguments</b></td>
+
+<td></td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td><b>Temporary Variables&nbsp;</b></td>
+
+<td></td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td align="LEFT" valign="TOP"><b>Stack</b></td>
+
+<td align="LEFT" valign="TOP">100@100</td>
+</tr>
+</tbody></table>
+
+<hr size="1" width="100%">The interpreter's second cycle has an effect
+similar to the first. The top of the stack is shown toward the bottom of
+the page. This corresponds to the commonly used convention that memory
+locations are shown with addresses increasing toward the bottom of the
+page.
+<br>
+<hr size="1" width="100%">
+<table border="0" cellspacing="0" width="100%">
+<tbody><tr>
+<td colspan="4" align="LEFT" valign="TOP"><b>Method for Rectangle center</b></td>
+</tr>
+
+<tr>
+<td width="2%"></td>
+
+<td width="6%"><b><tt>0</tt></b></td>
+
+<td colspan="2">push the value of the receiver's first instance variable
+(<tt>origin</tt>) onto the stack</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>1</tt></b></td>
+
+<td colspan="2" align="LEFT" valign="TOP">push the value of the receiver's
+second instance variable (<tt>corner</tt>) onto the stack</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"><img src="bluebook_chapter26_files/right_arrow_black.gif" height="17" width="24"></td>
+
+<td><b><tt>176</tt></b></td>
+
+<td colspan="2" align="LEFT" valign="TOP">send a binary message with the selector
+<tt>+</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>119</tt></b></td>
+
+<td colspan="2" align="LEFT" valign="TOP">push the <tt>SmallInteger</tt> <tt>2
+</tt>onto
+the stack&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>185</tt></b></td>
+
+<td colspan="2">send a binary message with the selector <tt>/</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>124</tt></b></td>
+
+<td colspan="2">return the object on top of the stack as the value of the
+message (<tt>center</tt>)&nbsp;</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td align="LEFT" valign="TOP"><b>Receiver</b></td>
+
+<td align="LEFT" valign="TOP" width="80%">100@100 corner: 200@200&nbsp;</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td><b>Arguments</b></td>
+
+<td></td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td><b>Temporary Variables&nbsp;</b></td>
+
+<td></td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td align="LEFT" valign="TOP"><b>Stack</b></td>
+
+<td align="LEFT" valign="TOP">100@100&nbsp;
+<br>200@200</td>
+</tr>
+</tbody></table>
+
+<hr size="1" width="100%">The interpreter's third cycle encounters a send
+bytecode. It removes two objects from the stack and uses them as the receiver
+and argument of a message with selector <tt>+</tt> The procedure for sending
+the message will not be described in detail here. For the moment, it is
+only necessary to know that eventually the result of the <tt>+</tt> message
+will be pushed onto the stack. Sending messages will be described in later
+sections.
+<br>
+<hr size="1" width="100%">
+<table border="0" cellspacing="0" width="100%">
+<tbody><tr>
+<td colspan="4" align="LEFT" valign="TOP"><b>Method for Rectangle center</b></td>
+</tr>
+
+<tr>
+<td width="2%"></td>
+
+<td width="6%"><b><tt>0</tt></b></td>
+
+<td colspan="2">push the value of the receiver's first instance variable
+(<tt>origin</tt>) onto the stack&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>1</tt></b></td>
+
+<td colspan="2" align="LEFT" valign="TOP">push the value of the receiver's
+second instance variable (<tt>corner</tt>) onto the stack</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>176</tt></b></td>
+
+<td colspan="2" align="LEFT" valign="TOP">send a binary message with the selector
+<tt>+</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"><img src="bluebook_chapter26_files/right_arrow_black.gif" height="17" width="24"></td>
+
+<td><b><tt>119</tt></b></td>
+
+<td colspan="2" align="LEFT" valign="TOP">push the <tt>SmallInteger</tt> <tt>2
+</tt>onto
+the stack&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>185</tt></b></td>
+
+<td colspan="2">send a binary message with the selector <tt>/</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>124</tt></b></td>
+
+<td colspan="2">return the object on top of the stack as the value of the
+message (<tt>center</tt>)&nbsp;</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td align="LEFT" valign="TOP"><b>Receiver</b></td>
+
+<td align="LEFT" valign="TOP" width="80%">100@100 corner: 200@200&nbsp;</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td><b>Arguments</b></td>
+
+<td></td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td><b>Temporary Variables&nbsp;</b></td>
+
+<td></td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td align="LEFT" valign="TOP"><b>Stack</b></td>
+
+<td align="LEFT" valign="TOP">300@300</td>
+</tr>
+</tbody></table>
+
+<hr size="1" width="100%">The interpreter's next cycle pushes the constant
+<tt>2</tt>
+onto the stack.
+<br>
+<hr size="1" width="100%">
+<table border="0" cellspacing="0" width="100%">
+<tbody><tr>
+<td colspan="4" align="LEFT" valign="TOP"><b>Method for Rectangle center</b></td>
+</tr>
+
+<tr>
+<td width="2%"></td>
+
+<td width="6%"><b><tt>0</tt></b></td>
+
+<td colspan="2">push the value of the receiver's first instance variable
+(<tt>origin</tt>) onto the stack</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>1</tt></b></td>
+
+<td colspan="2" align="LEFT" valign="TOP">push the value of the receiver's
+second instance variable (<tt>corner</tt>) onto the stack</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>176</tt></b></td>
+
+<td colspan="2" align="LEFT" valign="TOP">send a binary message with the selector
+<tt>+</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>119</tt></b></td>
+
+<td colspan="2" align="LEFT" valign="TOP">push the <tt>SmallInteger</tt> <tt>2
+</tt>onto
+the stack&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"><img src="bluebook_chapter26_files/right_arrow_black.gif" height="17" width="24"></td>
+
+<td><b><tt>185</tt></b></td>
+
+<td colspan="2">send a binary message with the selector <tt>/</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>124</tt></b></td>
+
+<td colspan="2">return the object on top of the stack as the value of the
+message (<tt>center</tt>)&nbsp;</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td align="LEFT" valign="TOP"><b>Receiver</b></td>
+
+<td align="LEFT" valign="TOP" width="80%">100@100 corner: 200@200&nbsp;</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td><b>Arguments</b></td>
+
+<td></td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td><b>Temporary Variables&nbsp;</b></td>
+
+<td></td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td align="LEFT" valign="TOP"><b>Stack</b></td>
+
+<td align="LEFT" valign="TOP">300@300&nbsp;
+<br>2</td>
+</tr>
+</tbody></table>
+
+<hr size="1" width="100%">The interpreter's next cycle sends another message
+whose result replaces its receiver and arguments on the stack.
+<br>
+<hr size="1" width="100%">
+<table border="0" cellspacing="0" width="100%">
+<tbody><tr>
+<td colspan="4" align="LEFT" valign="TOP"><b>Method for Rectangle center</b></td>
+</tr>
+
+<tr>
+<td width="2%"></td>
+
+<td width="6%"><b><tt>0</tt></b></td>
+
+<td colspan="2">push the value of the receiver's first instance variable
+(<tt>origin</tt>) onto the stack&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>1</tt></b></td>
+
+<td colspan="2" align="LEFT" valign="TOP">push the value of the receiver's
+second instance variable (<tt>corner</tt>) onto the stack</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>176</tt></b></td>
+
+<td colspan="2" align="LEFT" valign="TOP">send a binary message with the selector
+<tt>+</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>119</tt></b></td>
+
+<td colspan="2" align="LEFT" valign="TOP">push the <tt>SmallInteger</tt> <tt>2
+</tt>onto
+the stack&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>185</tt></b></td>
+
+<td colspan="2">send a binary message with the selector <tt>/</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"><img src="bluebook_chapter26_files/right_arrow_black.gif" height="17" width="24"></td>
+
+<td><b><tt>124</tt></b></td>
+
+<td colspan="2">return the object on top of the stack as the value of the
+message (<tt>center</tt>)&nbsp;</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td align="LEFT" valign="TOP"><b>Receiver</b></td>
+
+<td align="LEFT" valign="TOP" width="80%">100@100 corner: 200@200&nbsp;</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td><b>Arguments</b></td>
+
+<td></td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td><b>Temporary Variables&nbsp;</b></td>
+
+<td></td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td align="LEFT" valign="TOP"><b>Stack</b></td>
+
+<td align="LEFT" valign="TOP">150@150</td>
+</tr>
+</tbody></table>
+
+<hr size="1" width="100%">The final bytecode returns a result to the <tt>center</tt>
+message. The result is found on the stack (<tt>150@150</tt>). It is clear
+by this point that a return bytecode must involve pushing the result onto
+another stack. The details of returning a value to a message will be described
+after the description of sending a message.
+<p><a name="Contexts26"></a><b><i><font color="#000099"><font size="+1">Contexts</font></font></i></b>
+<br>
+</p><hr align="LEFT" noshade="noshade" size="1" width="60%">Push, store, and jump bytecodes
+require only small changes to the state of the interpreter. Objects may
+be moved to or from the stack, and the instruction pointer is always changed;
+but most of the state remains the same. Send and return bytecodes may require
+much larger changes to the interpreter's state. When a message is sent,
+all five parts of the interpreter's state may have to be changed in order
+to execute a different <tt>CompiledMethod</tt> in response to this new
+message. The interpreter's old state must be remembered because the bytecodes
+after the send must be executed after the value of the message is returned.
+<br>&nbsp;&nbsp;&nbsp; The interpreter saves its state in objects called
+<i>contexts</i>.
+There will be many contexts in the system at any one time. The context
+that represents the current state of the interpreter is called the <i>active
+context</i>. When a send bytecode in the active context's
+<tt>CompiledMethod</tt>
+requires a new <tt>CompiledMethod</tt> to be executed, the active context
+becomes <i>suspended</i> and a new context is created and made active.
+The suspended context retains the state associated with the original <tt>CompiledMethod</tt>
+until that context becomes active again. A context must remember the context
+that it suspended so that the suspended context can be resumed when a result
+is returned. The suspended context is called the new context's <i>sender</i>.
+<br>&nbsp;&nbsp;&nbsp; The form used to show the interpreter's state in
+the last section will be used to show contexts as well. The active context
+will be indicated by the word <b>Active</b> in its top delimiter. Suspended
+contexts will say <b>Suspended</b>. For example, consider a context representing
+the execution of the <tt>CompiledMethod</tt> for <tt>Rectangle</tt> <tt>rightCenter
+</tt>with
+a receiver of <tt>100@100</tt> <tt>corner:</tt> <tt>200@200</tt>. The source
+method for <tt>Rectangle</tt> <tt>rightCenter</tt> is
+<dl>
+<dd>
+<b>rightCenter</b></dd>
+
+<dl>
+<dd>
+^self right @ self center y</dd>
+</dl>
+</dl>
+The interpreter's state following execution of the first bytecode is shown
+below. The sender is some other context in the system.
+<br>&nbsp;
+<table border="0" cellspacing="0" width="100%">
+<tbody><tr bgcolor="#99FF99">
+<td colspan="4">
+<center><b><font size="+1">Active</font></b></center>
+</td>
+</tr>
+
+<tr>
+<td colspan="4" width="100%"><b>Method for Rectangle rightCenter</b></td>
+</tr>
+
+<tr>
+<td width="2%"></td>
+
+<td width="6%"><b><tt>112</tt></b></td>
+
+<td colspan="2">push the receiver (<tt>self</tt>) onto the stack</td>
+</tr>
+
+<tr>
+<td><img src="bluebook_chapter26_files/right_arrow_black.gif" height="17" width="24"></td>
+
+<td><b><tt><font color="#000000">208</font></tt></b></td>
+
+<td colspan="2">send a unary message with the selector in the first literal
+(<tt>right</tt>)</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td><b><tt>112</tt></b></td>
+
+<td colspan="2">push the receiver (<tt>self</tt>) onto the stack</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td><b><tt>209</tt></b></td>
+
+<td colspan="2">send the unary message with the selector in the second
+literal (<tt>center</tt>)</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td><b><tt>207</tt></b></td>
+
+<td colspan="2">send the unary message with the selector <tt>y</tt></td>
+</tr>
+
+<tr>
+<td></td>
+
+<td><b><tt>187</tt></b></td>
+
+<td colspan="2">send the binary message with the selector <tt>@</tt></td>
+</tr>
+
+<tr>
+<td></td>
+
+<td><b><tt>124</tt></b></td>
+
+<td colspan="2">return the object on top of the stack as the value of the
+message (<tt>rightCenter</tt>)</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td align="LEFT" valign="TOP"><b>literal frame</b>
+<br><tt>#right</tt>
+<br><tt>#center</tt></td>
+
+<td></td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td><b>Receiver</b></td>
+
+<td width="80%">100@100 corner: 200@200</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td><b>Arguments</b></td>
+
+<td></td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td><b>Temporary Variables&nbsp;</b></td>
+
+<td></td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td><b>Stack</b></td>
+
+<td>100@100 corner: 200@200</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td><b>Sender</b></td>
+
+<td></td>
+</tr>
+</tbody></table>
+
+<hr size="1" width="100%">After the next bytecode is executed, that context
+will be suspended. The object pushed by the first bytecode has been removed
+to be used as the receiver of a new context, which becomes active. The
+new active context is shown above the suspended context.
+<br>&nbsp;
+<table border="0" cellspacing="0" width="100%">
+<tbody><tr bgcolor="#99FF99">
+<td colspan="4">
+<center><b><font size="+1">Active</font></b></center>
+</td>
+</tr>
+
+<tr>
+<td colspan="4"><b>Method for Rectangle right</b></td>
+</tr>
+
+<tr>
+<td width="2%"><img src="bluebook_chapter26_files/right_arrow_black.gif" height="17" width="24"></td>
+
+<td width="6%"><b><tt>1</tt></b></td>
+
+<td colspan="2">push the value of the receiver's second instance variable
+(<tt>corner</tt>) onto the stack</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td><b><tt>206</tt></b></td>
+
+<td colspan="2">send a unary message with the selector <tt>x</tt></td>
+</tr>
+
+<tr>
+<td></td>
+
+<td><b><tt>124</tt></b></td>
+
+<td colspan="2">return the object on top of the stack as the value of the
+message (<tt>right</tt>)</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td align="LEFT" valign="TOP"><b>Receiver</b></td>
+
+<td width="80%">100@100 corner: 200@200</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td><b>Arguments</b></td>
+
+<td></td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td><b>Temporary Variables&nbsp;</b></td>
+
+<td></td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td><b>Stack</b></td>
+
+<td></td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td><b>Sender</b></td>
+
+<td></td>
+</tr>
+</tbody></table>
+
+<hr size="1" width="100%">
+<table border="0" cellspacing="0" width="100%">
+<tbody><tr bgcolor="#99FF99">
+<td colspan="4" bgcolor="#CCCCCC">
+<center><b><font size="+1">Suspended</font></b></center>
+</td>
+</tr>
+
+<tr>
+<td colspan="4" width="100%"><b>Method for Rectangle rightCenter</b></td>
+</tr>
+
+<tr>
+<td></td>
+
+<td width="50"><b><tt>112</tt></b></td>
+
+<td colspan="2">push the receiver (<tt>self</tt>) onto the stack</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td><b><tt>208</tt></b></td>
+
+<td colspan="2">send a unary message with the selector in the first literal
+( <tt>right</tt>)&nbsp;</td>
+</tr>
+
+<tr>
+<td><img src="bluebook_chapter26_files/right_arrow_black.gif" height="17" width="24"></td>
+
+<td><b><tt>112</tt></b></td>
+
+<td colspan="2">push the receiver (<tt>self</tt>) onto the stack&nbsp;</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td><b><tt>209</tt></b></td>
+
+<td colspan="2">send the unary message with the selector in the second
+literal (<tt>center</tt>)&nbsp;</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td><b><tt>207</tt></b></td>
+
+<td colspan="2">send the unary message with the selector <tt>y&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td></td>
+
+<td><b><tt>187</tt></b></td>
+
+<td colspan="2">send the binary message with the selector <tt>@</tt></td>
+</tr>
+
+<tr>
+<td></td>
+
+<td><b><tt>124</tt></b></td>
+
+<td colspan="2">return the object on top of the stack as the value of the
+message (<tt>rightCenter</tt>)&nbsp;</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td align="LEFT" valign="TOP"><b>literal frame</b>
+<br><tt>#right&nbsp;</tt>
+<br><tt>#center</tt></td>
+
+<td width="80%"></td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td><b>Receiver</b></td>
+
+<td>100@100 corner: 200@200&nbsp;</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td><b>Arguments</b></td>
+
+<td></td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td><b>Temporary Variables&nbsp;</b></td>
+
+<td></td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td><b>Stack</b></td>
+
+<td></td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td><b>Sender</b></td>
+
+<td></td>
+</tr>
+</tbody></table>
+
+<hr size="1" width="100%">The next cycle of the interpreter advances the
+new context instead of the previous one.
+<br>&nbsp;
+<table border="0" cellspacing="0" width="100%">
+<tbody><tr bgcolor="#99FF99">
+<td colspan="4">
+<center><b><font size="+1">Active</font></b></center>
+</td>
+</tr>
+
+<tr>
+<td colspan="4"><b>Method for Rectangle right</b></td>
+</tr>
+
+<tr>
+<td width="2%"></td>
+
+<td width="6%"><b><tt>1</tt></b></td>
+
+<td colspan="2">push the value of the receiver's second instance variable
+(<tt>corner</tt>) onto the stack</td>
+</tr>
+
+<tr>
+<td><img src="bluebook_chapter26_files/right_arrow_black.gif" height="17" width="24"></td>
+
+<td><b><tt>206</tt></b></td>
+
+<td colspan="2">send a unary message with the selector <tt>x</tt></td>
+</tr>
+
+<tr>
+<td></td>
+
+<td><b><tt>124</tt></b></td>
+
+<td colspan="2">return the object on top of the stack as the value of the
+message (<tt>right</tt>)</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td align="LEFT" valign="TOP"><b>Receiver</b></td>
+
+<td width="80%">100@100 corner: 200@200</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td><b>Arguments</b></td>
+
+<td></td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td><b>Temporary Variables&nbsp;</b></td>
+
+<td></td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td><b>Stack</b></td>
+
+<td>200@200</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td><b>Sender</b></td>
+
+<td></td>
+</tr>
+</tbody></table>
+
+<hr size="1" width="100%">
+<table border="0" cellspacing="0" width="100%">
+<tbody><tr bgcolor="#99FF99">
+<td colspan="4" bgcolor="#CCCCCC">
+<center><b><font size="+1">Suspended</font></b></center>
+</td>
+</tr>
+
+<tr>
+<td colspan="4" width="100%"><b>Method for Rectangle rightCenter</b></td>
+</tr>
+
+<tr>
+<td></td>
+
+<td width="50"><b><tt>112</tt></b></td>
+
+<td colspan="2">push the receiver (<tt>self</tt>) onto the stack</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td><b><tt>208</tt></b></td>
+
+<td colspan="2">send a unary message with the selector in the first literal
+(<tt>right</tt>)&nbsp;</td>
+</tr>
+
+<tr>
+<td><img src="bluebook_chapter26_files/right_arrow_black.gif" height="17" width="24"></td>
+
+<td><b><tt>112</tt></b></td>
+
+<td colspan="2">push the receiver (<tt>self</tt>) onto the stack&nbsp;</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td><b><tt>209</tt></b></td>
+
+<td colspan="2">send the unary message with the selector in the second
+literal (<tt>center</tt>)&nbsp;</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td><b><tt>207</tt></b></td>
+
+<td colspan="2">send the unary message with the selector <tt>y&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td></td>
+
+<td><b><tt>187</tt></b></td>
+
+<td colspan="2">send the binary message with the selector <tt>@</tt></td>
+</tr>
+
+<tr>
+<td></td>
+
+<td><b><tt>124</tt></b></td>
+
+<td colspan="2">return the object on top of the stack as the value of the
+message (<tt>rightCenter</tt>)&nbsp;</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td align="LEFT" valign="TOP"><b>literal frame</b>
+<br><tt>#right&nbsp;</tt>
+<br><tt>#center</tt></td>
+
+<td width="80%"></td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td><b>Receiver</b></td>
+
+<td>100@100 corner: 200@200&nbsp;</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td><b>Arguments</b></td>
+
+<td></td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td><b>Temporary Variables&nbsp;</b></td>
+
+<td></td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td><b>Stack</b></td>
+
+<td></td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td><b>Sender</b></td>
+
+<td></td>
+</tr>
+</tbody></table>
+
+<hr size="1" width="100%">In the next cycle, another message is sent, perhaps
+creating another context. Instead of following the response of this new
+message (<tt>x</tt>), we will skip to the point that this context returns
+a value (to <tt>right</tt>). When the result of <tt>x</tt> has been returned,
+the new context looks like this:
+<br>&nbsp;
+<table border="0" cellspacing="0" width="100%">
+<tbody><tr bgcolor="#99FF99">
+<td colspan="4">
+<center><b><font size="+1">Active</font></b></center>
+</td>
+</tr>
+
+<tr>
+<td colspan="4"><b>Method for Rectangle right</b></td>
+</tr>
+
+<tr>
+<td width="2%"></td>
+
+<td width="6%"><b><tt>1</tt></b></td>
+
+<td colspan="2">push the value of the receiver's second instance variable
+(<tt>corner</tt>) onto the stack</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td><b><tt>206</tt></b></td>
+
+<td colspan="2">send a unary message with the selector <tt>x</tt></td>
+</tr>
+
+<tr>
+<td><img src="bluebook_chapter26_files/right_arrow_black.gif" height="17" width="24"></td>
+
+<td><b><tt>124</tt></b></td>
+
+<td colspan="2">return the object on top of the stack as the value of the
+message (<tt>right</tt>)</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td align="LEFT" valign="TOP"><b>Receiver</b></td>
+
+<td width="80%">100@100 corner: 200@200</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td><b>Arguments</b></td>
+
+<td></td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td><b>Temporary Variables&nbsp;</b></td>
+
+<td></td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td><b>Stack</b></td>
+
+<td>200</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td><b>Sender</b></td>
+
+<td></td>
+</tr>
+</tbody></table>
+
+<hr size="1" width="100%">
+<table border="0" cellspacing="0" width="100%">
+<tbody><tr bgcolor="#99FF99">
+<td colspan="4" bgcolor="#CCCCCC">
+<center><b><font size="+1">Suspended</font></b></center>
+</td>
+</tr>
+
+<tr>
+<td colspan="4"><b>Method for Rectangle rightCenter</b></td>
+</tr>
+
+<tr>
+<td width="2%"></td>
+
+<td width="6%"><b><tt>112</tt></b></td>
+
+<td colspan="2">push the receiver (<tt>self</tt>) onto the stack</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td><b><tt>208</tt></b></td>
+
+<td colspan="2">send a unary message with the selector in the first literal
+(<tt>right</tt>)&nbsp;</td>
+</tr>
+
+<tr>
+<td><img src="bluebook_chapter26_files/right_arrow_black.gif" height="17" width="24"></td>
+
+<td><b><tt>112</tt></b></td>
+
+<td colspan="2">push the receiver (<tt>self</tt>) onto the stack&nbsp;</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td><b><tt>209</tt></b></td>
+
+<td colspan="2">send the unary message with the selector in the second
+literal (<tt>center</tt>)&nbsp;</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td><b><tt>207</tt></b></td>
+
+<td colspan="2">send the unary message with the selector <tt>y&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td></td>
+
+<td><b><tt>187</tt></b></td>
+
+<td colspan="2">send the binary message with the selector <tt>@</tt></td>
+</tr>
+
+<tr>
+<td></td>
+
+<td><b><tt>124</tt></b></td>
+
+<td colspan="2">return the object on top of the stack as the value of the
+message (<tt>rightCenter</tt>)&nbsp;</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td align="LEFT" valign="TOP"><b>literal frame</b>
+<br><tt>#right</tt>
+<br><tt>#center</tt></td>
+
+<td></td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td><b>Receiver</b></td>
+
+<td width="80%">100@100 corner: 200@200&nbsp;</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td><b>Arguments</b></td>
+
+<td></td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td><b>Temporary Variables&nbsp;</b></td>
+
+<td></td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td><b>Stack</b></td>
+
+<td></td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td><b>Sender</b></td>
+
+<td></td>
+</tr>
+</tbody></table>
+
+<hr size="1" width="100%">The next bytecode returns the value on the top
+of the active context's stack (<tt>200</tt>) as the value of the message
+that created the context (<tt>right</tt>). The active context's sender
+becomes the active context again and the returned value is pushed on its
+stack.
+<br>&nbsp;
+<table border="0" cellspacing="0" width="100%">
+<tbody><tr bgcolor="#99FF99">
+<td colspan="4">
+<center><b><font size="+1">Active</font></b></center>
+</td>
+</tr>
+
+<tr>
+<td colspan="4"><b>Method for Rectangle rightCenter</b></td>
+</tr>
+
+<tr>
+<td width="2%"></td>
+
+<td width="6%"><b><tt>112</tt></b></td>
+
+<td colspan="2">push the receiver (<tt>self</tt>) onto the stack</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td><b><tt>208</tt></b></td>
+
+<td colspan="2">send a unary message with the selector in the first literal
+(<tt>right</tt>)&nbsp;</td>
+</tr>
+
+<tr>
+<td><img src="bluebook_chapter26_files/right_arrow_black.gif" height="17" width="24"></td>
+
+<td><b><tt>112</tt></b></td>
+
+<td colspan="2">push the receiver (<tt>self</tt>) onto the stack&nbsp;</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td><b><tt>209</tt></b></td>
+
+<td colspan="2">send the unary message with the selector in the second
+literal (<tt>center</tt>)&nbsp;</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td><b><tt>207</tt></b></td>
+
+<td colspan="2">send the unary message with the selector <tt>y&nbsp;</tt></td>
+</tr>
+
+<tr>
+<td></td>
+
+<td><b><tt>187</tt></b></td>
+
+<td colspan="2">send the binary message with the selector <tt>@</tt></td>
+</tr>
+
+<tr>
+<td></td>
+
+<td><b><tt>124</tt></b></td>
+
+<td colspan="2">return the object on top of the stack as the value of the
+message (<tt>rightCenter</tt>)&nbsp;</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td align="LEFT" valign="TOP"><b>literal frame</b>
+<br><tt>#right</tt>
+<br><tt>#center</tt></td>
+
+<td></td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td><b>Receiver</b></td>
+
+<td width="80%">100@100 corner: 200@200&nbsp;</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td><b>Arguments</b></td>
+
+<td></td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td><b>Temporary Variables&nbsp;</b></td>
+
+<td></td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td><b>Stack</b></td>
+
+<td>200</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td><b>Sender</b></td>
+
+<td></td>
+</tr>
+</tbody></table>
+
+<hr size="1" width="100%">
+<p><a name="BlockContexts26"></a><b><i><font color="#000099"><font size="+1">Block
+Contexts</font></font></i></b>
+<br>
+</p><hr align="LEFT" noshade="noshade" size="1" width="60%">The contexts illustrated in the
+last section are represented in the system by instances of <tt>MethodContext</tt>.
+A <tt>MethodContext</tt> represents the execution of a <tt>CompiledMethod</tt>
+in response to a message. There is another type of context in the system,
+which is represented by instances of <tt>BlockContext</tt>. A <tt>BlockContext</tt>
+represents a block in a source method that is not part of an optimized
+control structure. The compilation of the optimized control structures
+was described in the earlier section on jump bytecodes. The bytecodes compiled
+from a nonoptimized control structure are illustrated by the following
+hypothetical method in <tt>Collection</tt>. This method returns a collection
+of the classes of the receiver's elements.
+<dl>
+<dd>
+<b>classes</b></dd>
+
+<dl>
+<dd>
+^self collect: [:element | element class]</dd>
+</dl>
+</dl>
+
+<table border="0" cellspacing="0" width="100%">
+<tbody><tr>
+<td colspan="4" align="LEFT" valign="TOP"><b>Collection classes </b>requires
+1 temporary variable</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP" width="2%"></td>
+
+<td width="6%"><b><tt>112</tt></b></td>
+
+<td colspan="2">push the receiver (<tt>self</tt>) onto the stack&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>137</tt></b></td>
+
+<td colspan="2">push the active context (<tt>thisContext</tt>) onto the
+stack&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>118</tt></b></td>
+
+<td colspan="2">push the <tt>SmallInteger</tt> <tt>1</tt> onto the stack&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>200</tt></b></td>
+
+<td colspan="2">send a single argument message with the selector <tt>blockCopy:</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>164,4</tt></b></td>
+
+<td colspan="2">jump around the next 4 bytes&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>104</tt></b></td>
+
+<td colspan="2">pop the top object off of the stack and store in the first
+temporary frame location (<tt>element</tt>)</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>16</tt></b></td>
+
+<td colspan="2">push the contents of the first temporary frame location
+(<tt>element</tt>) onto the stack&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>199</tt></b></td>
+
+<td colspan="2">send a unary message with the selector <tt>class</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>125</tt></b></td>
+
+<td colspan="2">return the object on top of the stack as the value of the
+block&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>224</tt></b></td>
+
+<td colspan="2">send a single argument message with the selector in the
+first literal frame location (<tt>collect:</tt>)&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>124</tt></b></td>
+
+<td colspan="2">return the object on top of the stack as the value of the
+message (<tt>classes</tt>)&nbsp;</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td align="LEFT" valign="TOP"><b>literal frame</b>
+<br><tt>#collect:</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td>
+
+<td width="80%"></td>
+</tr>
+</tbody></table>
+A new <tt>BlockContext</tt> is created by the <tt>blockCopy:</tt> message
+to the active context. The bytecode that pushes the active context was
+not described along with the rest of the push bytecodes since the function
+of contexts had not been described at that point. The argument to <tt>blockCopy:
+</tt>(1
+in this example) indicates the number of block arguments the block requires.
+The <tt>BlockContext</tt> shares much of the state of the active context
+that creates it. The receiver, arguments, temporary variables,
+<tt>CompiledMethod</tt>,
+and sender are all the same. The <tt>BlockContext</tt> has its own instruction
+pointer and stack. Upon returning from the <tt>blockCopy:</tt> message,
+the newly created <tt>BlockContext</tt> is on the stack of the active context
+and the next instruction jumps around the bytecodes that describe the actions
+of the block. The active context gave the <tt>BlockContext</tt> an initial
+instruction pointer pointing to the bytecode after this jump. The compiler
+always uses an extended (two-byte) jump after a <tt>blockCopy:</tt> so
+that the <tt>BlockContext's</tt> initial instruction pointer is always
+two more than the active context's instruction pointer when it receives
+the <tt>blockCopy:</tt> message.
+<br>&nbsp;&nbsp;&nbsp; The method for <tt>Collection</tt> classes creates
+a <tt>BlockContext</tt>, but does not execute its bytecodes. When the collection
+receives the <tt>collect:</tt> message, it will repeatedly send <tt>value:</tt>
+messages to the <tt>BlockContext</tt> with the elements of the collection
+as arguments. A <tt>BlockContext</tt> responds to <tt>value:</tt> by becoming
+the active context, which causes its bytecodes to be executed by the interpreter.
+Before the <tt>BlockContext</tt> becomes active, the argument to <tt>value:
+</tt>is
+pushed onto the <tt>BlockContext's</tt> stack. The first bytecode executed
+by the <tt>BlockContext</tt> stores this value in a temporary variable
+used for the block argument.
+<br>&nbsp;&nbsp;&nbsp; A <tt>BlockContext</tt> can return a value in two
+ways. After the bytecodes in the block have been executed, the final value
+on the stack is returned as the value of the message <tt>value</tt> or
+<tt>value:
+</tt>.
+The block can also return a value to the message that invoked the
+<tt>CompiledMethod</tt>
+that created the <tt>BlockContext</tt>. This is done with the regular return
+bytecodes. The hypothetical method for <tt>Collection containsInstanceOf:</tt>
+uses both types of return from a <tt>BlockContext</tt>.
+<dl>
+<dd>
+<b>containsInstanceOf: aClass</b></dd>
+
+<dl>
+<dd>
+self do: [:element | (element isKindOf: aClass) ifTrue: [^true]].</dd>
+
+<dd>
+^false</dd>
+</dl>
+</dl>
+
+<table border="0" cellspacing="0" width="100%">
+<tbody><tr>
+<td colspan="4" align="LEFT" valign="TOP"><b>Collection containsInstanceOf:
+</b>requires
+1 temporary variable</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP" width="2%"></td>
+
+<td width="6%"><b><tt>112</tt></b></td>
+
+<td colspan="2">push the receiver (<tt>self</tt>) onto the stack&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>137</tt></b></td>
+
+<td colspan="2">push the active context (<tt>thisContext</tt>) onto the
+stack&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>118</tt></b></td>
+
+<td colspan="2">push the <tt>SmallInteger</tt> <tt>1</tt> onto the stack&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>200</tt></b></td>
+
+<td colspan="2">send a single argument message with the selector <tt>blockCopy:</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>164,8</tt></b></td>
+
+<td colspan="2">jump around the next 8 bytes&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>105</tt></b></td>
+
+<td colspan="2">pop the top object off of the stack and store in the second
+temporary frame location (<tt>element</tt>)&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>17</tt></b></td>
+
+<td colspan="2">push the contents of the second temporary frame location
+(<tt>element</tt>) onto the stack&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>16</tt></b></td>
+
+<td colspan="2">push the contents of the first temporary frame location
+(<tt>aClass</tt>) onto the stack&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>224</tt></b></td>
+
+<td colspan="2">send a single argument message with the selector in the
+first literal frame location (<tt>isKindOf:</tt>)&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>152</tt></b></td>
+
+<td colspan="2">pop the top object off of the stack and jump around 1 byte
+if it is <tt>false</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>121</tt></b></td>
+
+<td colspan="2">return <tt>true</tt> as the value of the message (<tt>containsInstanceOf:</tt>)&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>115</tt></b></td>
+
+<td colspan="2">push <tt>nil</tt> onto the stack&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>125</tt></b></td>
+
+<td colspan="2">return the object on top of the stack as the value of the
+block&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>203</tt></b></td>
+
+<td colspan="2">send the single argument message with the selector <tt>do:</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>135</tt></b></td>
+
+<td colspan="2">pop the top object off the stack&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>122</tt></b></td>
+
+<td colspan="2">return false as the value of the message (<tt>containsInstanceOf:</tt>)&nbsp;</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td align="LEFT" valign="TOP"><b>literal frame</b>
+<br><tt>#isKindOf:</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp;</tt></td>
+
+<td width="80%"></td>
+</tr>
+</tbody></table>
+
+<hr size="1" width="100%">
+<br><a name="Messages26"></a><b><i><font color="#000099"><font size="+1">Messages</font></font></i></b>
+<br>
+<hr align="LEFT" noshade="noshade" size="1" width="60%">Then a send bytecode is encountered,
+the interpreter finds the <tt>CompiledMethod</tt> indicated by the message
+as follows.
+<br>&nbsp;
+<table border="0" cellspacing="0" width="100%">
+<tbody><tr>
+<td align="RIGHT" valign="TOP" width="6%">1.&nbsp;</td>
+
+<td><i>Find the message receiver.</i> The receiver is below the arguments
+on the stack. The number of arguments is indicated in the send bytecode.</td>
+</tr>
+
+<tr>
+<td align="RIGHT" valign="TOP">2.&nbsp;</td>
+
+<td><i>Access a message dictionary.</i> The original message dictionary
+is found in the receiver's class.</td>
+</tr>
+
+<tr>
+<td align="RIGHT" valign="TOP">3.&nbsp;</td>
+
+<td><i>Look up the message selector in the message dictionary.</i> The
+selector is indicated in the send bytecode.</td>
+</tr>
+
+<tr>
+<td align="RIGHT" valign="TOP">4.&nbsp;</td>
+
+<td><i>If the selector is found,</i> the associated <tt>CompiledMethod</tt>
+describes the response to the message.</td>
+</tr>
+
+<tr>
+<td align="RIGHT" valign="TOP">5.&nbsp;</td>
+
+<td align="LEFT" valign="TOP"><i>If the selector is not found,</i> a new message
+dictionary must be searched (returning to step 3). The new message dictionary
+will be found in the superclass of the last class whose message dictionary
+was searched. This cycle may be repeated several times, traveling up the
+superclass chain.
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+</tr>
+</tbody></table>
+If the selector is not found in the receiver's class nor in any of its
+superclasses, an error is reported, and execution of the bytecodes following
+the send is suspended.
+<p><img src="bluebook_chapter26_files/bluesquare.gif" align="TEXTTOP" height="20" width="20"><b><i><font size="+1">Superclass
+Sends</font></i></b>&nbsp; A variation of the send bytecodes called <i>super-sends</i>
+uses a slightly different algorithm to find the <tt>CompiledMethod</tt>
+associated with a message. Everything is the same except for the second
+step, which specifies the original message dictionary to search. When a
+super-send is encountered, the following second step is substituted.
+<br>&nbsp;
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+<tbody><tr>
+<td align="RIGHT" valign="TOP" width="6%">2.&nbsp;</td>
+
+<td align="LEFT" valign="TOP"><i>Access a message dictionary.</i> The original
+message dictionary is found in the superclass of the class in which the
+currently executing <tt>CompiledMethod </tt>was found.
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+</tr>
+</tbody></table>
+Super-send bytecodes are used when <tt>super</tt> is used as the receiver
+of a message in a source method. The bytecode used to push the receiver
+will be the same as if <tt>self</tt> had been used, but a super-send bytecode
+will be used to describe the selector.
+<br>&nbsp;&nbsp;&nbsp; As an example of the use of a super-send, imagine
+a subclass of <tt>Rectangle</tt> called <tt>ShadedRectangle</tt> that adds
+an instance variable named <tt>shade</tt>. A <tt>Rectangle</tt> might respond
+to the message <tt>shade:</tt> by producing a new <tt>ShadedRectangle</tt>.
+<tt>ShadedRectangle</tt>
+provides a new method for the message <tt>intersect:
+</tt>, returning a
+<tt>ShadedRectangle</tt>
+instead of a <tt>Rectangle</tt>. This method must use <tt>super</tt> to
+access its own ability to actually compute the intersection.
+</p><dl>
+<dd>
+<b>intersect: aRectangle</b></dd>
+
+<dl>
+<dd>
+^(super intersect: aRectangle) shade: shade</dd>
+</dl>
+</dl>
+
+<table border="0" cellspacing="0" width="100%">
+<tbody><tr>
+<td colspan="4" align="LEFT" valign="TOP"><b>ShadedRectangle intersect:</b></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP" width="2%"></td>
+
+<td width="6%"><b><tt>112</tt></b></td>
+
+<td colspan="2">push the receiver (<tt>self</tt>) onto the stack</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>16</tt></b></td>
+
+<td colspan="2">push the contents of the first temporary frame location
+(the argument <tt>aRectangle</tt>) onto the stack&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>133,33</tt></b></td>
+
+<td colspan="2">send to <tt>super</tt> a single argument message with the
+selector in the second literal frame location (<tt>intersect:</tt>)&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>2</tt></b></td>
+
+<td colspan="2">push the value of the receiver's third instance variable
+(<tt>shade</tt>) onto the stack&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>224</tt></b></td>
+
+<td colspan="2">send a single argument message with the selector in the
+first literal frame location (<tt>shade:</tt>)&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>124</tt></b></td>
+
+<td colspan="2">return the object on top of the stack as the value of the
+message (<tt>intersect:</tt>)&nbsp;</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td align="LEFT" valign="TOP"><b>literal frame</b>
+<br><tt>#shade:&nbsp;</tt>
+<br><tt>#intersect:&nbsp;</tt>
+<br><tt>Association: #ShadedRectangle -&gt; ShadedRectangle</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td>
+
+<td></td>
+</tr>
+</tbody></table>
+It is important to note that the initial class searched in response to
+a super-send will be the superclass of the receiver's class only if the
+<tt>CompiledMethod</tt>
+containing the super-send was originally found the receiver's class. If
+the <tt>CompiledMethod</tt> was originally found in a superclass of the
+receiver's class, the search will start in <i>that</i> class's superclass.
+Since the interpreter's state does not include the class in which it found
+each <tt>CompiledMethod</tt>, that information is included in the <tt>CompiledMethod</tt>
+itself. Every <tt>CompiledMethod</tt> that includes a super-send bytecode
+refers to the class in whose message dictionary it is found. The last entry
+of the literal frame of those <tt>CompiledMethods</tt> contains an association
+referring to the class.
+<p><a name="PrimitiveMethods26"></a><b><i><font color="#000099"><font size="+1">Primitive
+Methods</font></font></i></b>
+<br>
+</p><hr align="LEFT" noshade="noshade" size="1" width="60%">The interpreter's actions after
+finding a <tt>CompiledMethod</tt> depend on whether or not the <tt>CompiledMethod</tt>
+indicates that a <i>primitive method</i> may be able to respond to the
+message. If no primitive method is indicated, a new <tt>MethodContext</tt>
+is created and made active as described in previous sections. If a primitive
+method is indicated in the <tt>CompiledMethod</tt>, the interpreter may
+be able to respond to the message without actually executing the bytecodes.
+For example, one of the primitive methods is associated with the <tt>+</tt>
+message to instances of <tt>SmallInteger</tt>.
+<dl>
+<dd>
+<b>+ addend</b></dd>
+
+<dl>
+<dd>
+&lt;primitive: 1&gt;</dd>
+
+<dd>
+^super + addend</dd>
+</dl>
+</dl>
+
+<table border="0" cellspacing="0" width="100%">
+<tbody><tr>
+<td colspan="4" align="LEFT" valign="TOP"><b>SmallInteger + </b>associated
+with primitive #1</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP" width="2%"></td>
+
+<td width="6%"><b><tt>112</tt></b></td>
+
+<td colspan="2">push the receiver (<tt>self</tt>) onto the stack</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>16</tt></b></td>
+
+<td colspan="2">push the contents of the first temporary frame location
+(the argument <tt>addend</tt>) onto the stack&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>133,32</tt></b></td>
+
+<td colspan="2">send to <tt>super</tt> a single argument message with the
+selector in the first literal frame location (<tt>+</tt>)&nbsp;</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"></td>
+
+<td><b><tt>124</tt></b></td>
+
+<td colspan="2">return the object on top of the stack as the value of the
+message (<tt>+</tt>)&nbsp;</td>
+</tr>
+
+<tr>
+<td></td>
+
+<td></td>
+
+<td align="LEFT" valign="TOP"><b>literal frame</b>
+<br>#<tt>+</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp;</tt></td>
+
+<td width="80%"></td>
+</tr>
+</tbody></table>
+Even if a primitive method is indicated for a <tt>CompiledMethod</tt>,
+the interpreter may not be able to respond successfully. For example, the
+argument of the <tt>+</tt> message might not be another instance of <tt>SmallInteger
+</tt>or
+the sum might not be representable by a <tt>SmallInteger</tt>. If the interpreter
+cannot execute the primitive for some reason, the primitive is said to
+<i>fail</i>.
+When a primitive fails, the bytecodes in the <tt>CompiledMethod
+</tt>are
+executed as if the primitive method had not been indicated. The method
+for <tt>SmallInteger +</tt> indicates that the <tt>+</tt> method in the
+superclass (<tt>Integer</tt>) will be used if the primitive fails.
+<br>&nbsp;&nbsp;&nbsp; There are about a hundred primitive methods in the
+system that perform four types of operation. The exact function of all
+of the primitives will be described in <a href="../bluebook/bluebook_chapter29.html">Chapter
+29</a>.
+<ol>
+<li>
+Arithmetic</li>
+
+<li>
+Storage management</li>
+
+<li>
+Control</li>
+
+<li>
+Input-output</li>
+</ol>
+
+<center>
+<hr size="1" width="80%"><a name="TheObjectMemory26"></a><b><font color="#3333FF"><font size="+2">The
+Object Memory</font></font></b>
+<hr size="1" width="80%"></center>
+The object memory provides the interpreter with an interface to the objects
+that make up the Smalltalk-80 virtual image. Each object is associated
+with a unique identifier called its <i>object pointer</i>. The object memory
+and interpreter communicate about objects with object pointers. The size
+of object pointers determines the maximum number of objects a Smalltalk-80
+system can contain. This number is not fixed by anything about the language,
+but the implementation described in this book uses 16-bit object pointers,
+allowing 65536 objects to be referenced. Implementation of the Smalltalk-80
+system with larger object references will require changing certain parts
+of the virtual machine specification. It is not within the scope of this
+book to detail the relevant changes.
+<br>&nbsp;&nbsp;&nbsp; The object memory associates each object pointer
+with a set of other object pointers. Every object pointer is associated
+with the object pointer of a class. If an object has instance variables,
+its object pointer is also associated with the object pointers of their
+values. The individual instance variables are referred to by zero-relative
+integer indices. The value of an instance variable can be changed, but
+the class associated with an object cannot be changed. The object memory
+provides the following five fundamental functions to the interpreter.
+<br>&nbsp;
+<table border="0" cellpadding="2" cellspacing="2" width="100%">
+<tbody><tr>
+<td align="RIGHT" valign="TOP" width="6%">1.</td>
+
+<td><i>Access</i> the value of an object's <i>instance variable.</i> The
+object pointer of the instance and the index of the instance variable must
+be supplied. The object pointer of the instance variable's value is returned.&nbsp;</td>
+</tr>
+
+<tr>
+<td align="RIGHT" valign="TOP">2.</td>
+
+<td><i>Change</i> the value of an object's <i>instance variable.</i> The
+object pointer of the instance and the index of the instance variable must
+be supplied. The object pointer of the new value must also be supplied.&nbsp;</td>
+</tr>
+
+<tr>
+<td align="RIGHT" valign="TOP">3.</td>
+
+<td><i>Access</i> an object's <i>class</i>. The object pointer of the instance
+must be supplied. The object pointer of the instance's class is returned.&nbsp;</td>
+</tr>
+
+<tr>
+<td align="RIGHT" valign="TOP">4.</td>
+
+<td><i>Create</i> a new <i>object</i>. The object pointer of the new object's
+class and the number of instance variables it should have must be supplied.
+The object pointer of the new instance is returned.&nbsp;</td>
+</tr>
+
+<tr>
+<td align="RIGHT" valign="TOP">5.</td>
+
+<td align="LEFT" valign="TOP">Find the <i>number of instance variables</i>
+an object has. The object's pointer must be supplied. The number of instance
+variables is returned.
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+</tr>
+</tbody></table>
+There is no explicit function of the object memory to remove an object
+no longer being used because these objects are reclaimed automatically.
+An object is reclaimed when there are no object pointers to it from other
+objects. This reclamation can be accomplished either by reference counting
+or garbage collection.
+<br>&nbsp;&nbsp;&nbsp; There are two additional features of the object
+memory that provide efficient representation of numerical information.
+The first of these sets aside certain object pointers for instances of
+class <tt>SmallInteger </tt>. The second allows objects to contain integer
+values instead of object pointers.
+<p><img src="bluebook_chapter26_files/bluesquare.gif" align="TEXTTOP" height="20" width="20"><b><i><font size="+1">Representation
+of Small Integers</font>&nbsp; </i></b>The instances of class <tt>SmallInteger</tt>
+represent the integers -16384 through 16383. Each of these instances is
+assigned a unique object pointer. These object pointers all have a 1 in
+the low-order bit position and the two's complement representation of their
+value in the high-order 15 bits. An instance of <tt>SmallInteger</tt> needs
+no instance storage since both its class and its value can be determined
+from its object pointer. Two additional functions are provided by the object
+memory to convert back and forth between <tt>SmallInteger</tt> object pointers
+and numerical values.
+<br>&nbsp;
+<table border="0" cellpadding="2" cellspacing="2" width="100%">
+<tbody><tr>
+<td align="RIGHT" valign="TOP" width="6%">6.</td>
+
+<td>Find the numerical value represented by a <tt>SmallInteger</tt>. The
+object pointer of the <tt>SmallInteger</tt> must be supplied. The two's
+complement value is returned.&nbsp;</td>
+</tr>
+
+<tr>
+<td align="RIGHT" valign="TOP">7.</td>
+
+<td align="LEFT" valign="TOP">Find the <tt>SmallInteger</tt> representing a
+numerical value. The two's complement value must be supplied. A <tt>SmallInteger</tt>
+object pointer is returned.
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+</tr>
+</tbody></table>
+This representation for <tt>SmallIntegers</tt> implies that there can be
+32768 instances of the other classes in the system. It also implies that
+equality (=) and equivalence (==) will be the same for instances of <tt>SmallInteger</tt>.
+Integers outside the range -16384 through 16383 are represented by instances
+of class <tt>LargePositiveInteger</tt> or <tt>LargeNegativeInteger</tt>.
+There may be several instances representing the same value, so equality
+and equivalence are different.
+</p><p><img src="bluebook_chapter26_files/bluesquare.gif" align="TEXTTOP" height="20" width="20"><b><i><font color="#000000"><font size="+1">Collections
+of Integer Values </font></font></i></b>Another special representation
+is included for objects representing collections of integers. Instead of
+storing the object pointers of the <tt>SmallIntegers</tt> representing
+the contents of the collection, the actual numerical values are stored.
+The values in these special collections are constrained to be positive.
+There are two varieties of collection, one limiting its values to be less
+than 256 and the other limiting its values to be less than 65536. The object
+memory provides functions analogous to the first five listed in this section,
+but for objects whose contents are numerical values instead of object pointers.
+<br>&nbsp;&nbsp;&nbsp; The distinction between objects that contain object
+pointers and those that contain integer values is never visible to the
+Smalltalk-80 programmer. When one of these special numerical collections
+is accessed by sending it a message, the object pointer of an object representing
+the value is returned. The nature of these special collections is only
+evident in that they may refuse to store objects that do not represent
+integers within the proper range.
+</p><center>
+<hr size="1" width="80%"><a name="TheHardware26"></a><b><font color="#3333FF"><font size="+2">The
+Hardware</font></font></b>
+<hr size="1" width="80%"></center>
+The Smalltalk-80 implementation has been described as a virtual machine
+to avoid unnecessary hardware dependencies. It is naturally assumed that
+the hardware will include a processor and more than enough memory to store
+the virtual image and the machine language routines simulating the interpreter
+and object memory. The current size of the virtual image requires at least
+a half megabyte of memory.
+<br>&nbsp;&nbsp;&nbsp; The size of the processor and the organization of
+the memory are not actually constrained by the virtual machine specification.
+Since object pointers are 16 bits, the most convenient arrangement would
+be a 16-bit processor and a memory of 16-bit words. As with the processor
+and memory of any system, the faster the better.
+<br>&nbsp;&nbsp;&nbsp; The other hardware requirements are imposed by the
+primitives that the virtual image depends on. These input-output devices
+and clocks are listed below.
+<ol>
+<li>
+A bitmap display. It is most convenient if the bitmap being displayed can
+be located in the object memory, although this is not absolutely necessary.</li>
+
+<li>
+A pointing device.</li>
+
+<li>
+Three buttons associated with the pointing device. It is most convenient
+if these are physically located on the device.</li>
+
+<li>
+A keyboard, either decoded ASCII or undecoded ALTO.</li>
+
+<li>
+A disk. The standard Smalltalk-80 virtual image contains only a skeleton
+disk system that must be tailored to the actual disk used.</li>
+
+<li>
+A millisecond timer.</li>
+
+<li>
+A real time clock with one second resolution.</li>
+</ol>
+
+<hr size="1" width="100%">
+<center><font color="#3333FF">[<a href="../bluebook_imp_toc.html">TOC</a>]
+[<a href="../bluebook/bluebook_chapter26.html#top_of_26">26</a>] [<a href="../bluebook/bluebook_chapter27.html">27</a>]
+[<a href="../bluebook/bluebook_chapter28.html">28</a>] [<a href="../bluebook/bluebook_chapter29.html">29</a>]
+[<a href="../bluebook/bluebook_chapter30.html">30</a>]</font></center>
+
+
+
+</body></html>

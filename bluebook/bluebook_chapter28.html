@@ -1,0 +1,2208 @@
+<!DOCTYPE html PUBLIC "-//w3c//dtd html 4.0 transitional//en">
+<html><head>
+<!-- base href="http://users.ipa.net.wstub.archive.org/~dwighth/smalltalk/bluebook/bluebook_chapter28.html" -->
+
+   <meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+   <meta name="GENERATOR" content="Mozilla/4.51 [en] (WinNT; I) [Netscape]">
+   <title>Blue Book Chapter 28</title>
+</head>
+<body alink="#FF0000" bgcolor="#FFF7E1" link="#0000EE" text="#000000" vlink="#551A8B">
+
+<center><a name="top_of_28"></a><font color="#3333FF">[<a href="../bluebook_imp_toc.html">TOC</a>]
+[<a href="../bluebook/bluebook_chapter26.html">26</a>] [<a href="../bluebook/bluebook_chapter27.html">27</a>]
+</font><font color="#000000">28</font><font color="#3333FF">
+[<a href="../bluebook/bluebook_chapter29.html">29</a>] [<a href="../bluebook/bluebook_chapter30.html">30</a>]</font>
+<br>
+<hr size="1" width="100%"><font color="#000099"><font size="+4">28</font></font>
+<br><font color="#3333FF"><font size="+3">Formal Specification of the Interpreter</font></font>
+<hr size="1" width="100%"></center>
+
+<dl>
+<dl>
+<dl>
+<dd>
+<b><font color="#3333FF"><font size="+1"><a href="../bluebook/bluebook_chapter28.html#StackBytecodes28">Stack
+Bytecodes</a></font></font></b></dd>
+
+<dd>
+<b><font color="#3333FF"><font size="+1"><a href="../bluebook/bluebook_chapter28.html#JumpBytecodes28">Jump
+Bytecodes</a></font></font></b></dd>
+
+<dd>
+<b><font color="#3333FF"><font size="+1"><a href="../bluebook/bluebook_chapter28.html#SendBytecodes28">Send
+Bytecodes</a></font></font></b></dd>
+
+<dd>
+<b><font color="#3333FF"><font size="+1"><a href="../bluebook/bluebook_chapter28.html#ReturnBytecodes28">Return
+Bytecodes</a></font></font></b></dd>
+</dl>
+</dl>
+</dl>
+
+<hr size="1" width="100%">The main loop of the Smalltalk-80 interpreter fetches
+bytecodes from a <tt>CompiledMethod</tt> sequentially and dispatches to
+routines that perform the operations the bytecodes indicate. The <tt>fetchByte</tt>
+routine fetches the byte indicated by the active context's instruction
+pointer and increments the instruction pointer.
+<dl>
+<dd>
+<b>fetchByte</b></dd>
+
+<dl>
+<dd>
+| byte |</dd>
+
+<dd>
+byte := memory fetchByte: instructionPointer</dd>
+
+<dl>
+<dl>
+<dd>
+&nbsp; ofObject: method.</dd>
+</dl>
+</dl>
+
+<dd>
+instructionPointer := instructionPointer + 1.</dd>
+
+<dd>
+^byte</dd>
+</dl>
+</dl>
+Since process switches are only allowed between bytecodes, the first action
+in the interpreter's main loop is to call a routine that switches processes
+if necessary. The <tt>checkProcessSwitch</tt> routine will be described
+with the process scheduling primitive routines in the <a href="../bluebook/bluebook_chapter29.html">next
+chapter</a>. After checking for a process switch, a bytecode is fetched
+(perhaps from a new process), and a dispatch is made to the appropriate
+routine.
+<dl>
+<dd>
+<b>interpret</b></dd>
+
+<dl>
+<dd>
+[true] whileTrue: [self cycle]</dd>
+</dl>
+
+<dd>
+&nbsp;</dd>
+
+<dd>
+<b>cycle</b></dd>
+
+<dl>
+<dd>
+self checkProcessSwitch.</dd>
+
+<dd>
+currentBytecode := self fetchByte.</dd>
+
+<dd>
+self dispatchOnThisBytecode</dd>
+</dl>
+</dl>
+The table on page 595 lists the <a href="../bluebook/bluebook_chapter28.html#st80_bytecodes_table">Smalltalk-80
+bytecodes</a>. The bytecodes are listed in ranges that have similar function.
+For example, the first range includes the bytecodes from 0 through 15 and
+its entry is shown below.
+<br>&nbsp;
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+<tbody><tr>
+<td align="LEFT" valign="TOP" width="8%">0-15</td>
+
+<td align="LEFT" valign="TOP" width="20%">
+<dl><tt>0000iiii</tt></dl>
+</td>
+
+<td align="LEFT" valign="TOP">Push Receiver Variable #<tt>iiii</tt></td>
+</tr>
+</tbody></table>
+&nbsp;&nbsp;&nbsp; Each range of bytecodes is listed with a bit pattern
+and a comment about the function of the bytecodes. The bit pattern shows
+the binary representation of the bytecodes in the range. 0s and 1s are
+used in bit locations that have the same value for all bytecodes in the
+range. Since all numbers from 0 through 15 have four zeros in their high
+order bits, these bits are shown as 0000. Lower case letters are used in
+bit locations whose values vary within the range. The value of each letter
+can be either 0 or 1. The letters used in the pattern can be included in
+the comment to refer to the value of those bits in a specific bytecode
+in the range. The comment for the first range of bytecodes indicates that
+the low-order four bits of the bytecode specify the index of one of the
+receiver's variables to be pushed on the stack.
+<br>&nbsp;&nbsp;&nbsp; The variable bits in a bit pattern are also sometimes
+used as a zero-relative index into a list included in the comment. For
+example, the entry
+<br>&nbsp;
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+<tbody><tr>
+<td align="LEFT" valign="TOP" width="8%">120-123</td>
+
+<td align="LEFT" valign="TOP" width="20%">
+<dl><tt>011110ii</tt></dl>
+</td>
+
+<td align="LEFT" valign="TOP">Return (receiver<tt>, true, false, nil</tt>)
+[<tt>ii</tt>] From Message</td>
+</tr>
+</tbody></table>
+specifies that the bytecode 120 returns the receiver, bytecode 121 returns
+<tt>true</tt>,
+bytecode 122 returns <tt>false</tt> and bytecode 123 returns
+<tt>nil</tt>.
+<br>&nbsp;&nbsp;&nbsp; The entries for bytecodes that take extensions will
+include more than one bit pattern. For example,
+<br>&nbsp;
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+<tbody><tr>
+<td align="LEFT" valign="TOP" width="8%">131</td>
+
+<td align="LEFT" nowrap="nowrap" valign="TOP" width="20%">
+<dl><tt>10000011 jjjkkkkk</tt></dl>
+</td>
+
+<td align="LEFT" valign="TOP">Send Literal Selector #<tt>kkkkk</tt> With <tt>jjj</tt>
+Arguments</td>
+</tr>
+</tbody></table>
+There are four basic types of bytecode.
+<ul>
+<li>
+<i>stack bytecodes</i> move object pointers between the object memory and
+the active context's evaluation stack. These include both the push bytecodes
+and store bytecodes described in Chapter 26.</li>
+
+<li>
+<i>jump bytecodes</i> change the instruction pointer of the active context.</li>
+
+<li>
+<i>send bytecodes</i> invoke <tt>CompiledMethods</tt> or primitive routines.</li>
+
+<li>
+<i>return bytecodes</i> terminate the execution of <tt>CompiledMethods</tt>.</li>
+</ul>
+Not all of the bytecodes of one type are contiguous, so the main dispatch
+has seven branches each of which calls one of four routines (<tt>stackBytecode</tt>,
+<tt>jumpBytecode</tt>,
+<tt>sendBytecode</tt>,
+or <tt>returnBytecode</tt>). These four routines will be described in the
+next four subsections.
+<dl>
+<dd>
+<b>dispatchOnThisBytecode</b></dd>
+
+<dl>
+<dd>
+(currentBytecode between: 0 and: 119) ifTrue: [^self stackBytecode].</dd>
+
+<dd>
+(currentBytecode between: 120 and: 127) ifTrue: [^self returnBytecode].</dd>
+
+<dd>
+(currentBytecode between: 128 and: 130) ifTrue: [^self stackBytecode].</dd>
+
+<dd>
+(currentBytecode between: 131 and: 134) ifTrue: [^self sendBytecode].</dd>
+
+<dd>
+(currentBytecode between: 135 and: 137) ifTrue: [^self stackBytecode].</dd>
+
+<dd>
+(currentBytecode between: 144 and: 175) ifTrue: [^self jumpBytecode].</dd>
+
+<dd>
+(currentBytecode between: 176 and: 255) ifTrue: [^self sendBytecode]</dd>
+</dl>
+</dl>
+The bytecodes 176-191 refer to Arithmetic Messages. These are
+<dl>
+<dd>
+<tt>+, -, &lt;, &gt;, &lt;=, &gt;=, =, ~=, *, /, \\, @, bitShift:, //, bitAnd:,
+bitOr:</tt></dd>
+</dl>
+The bytecodes 192-207 refer to Special Messages. These are
+<dl>
+<dd>
+<tt>at:*, at:put:*, size*, next*, nextPut:*, atEnd*, ==, class, blockCopy:,
+value, value:, do:*, new*, new:*, x*, y*</tt></dd>
+</dl>
+Selectors indicated with an asterisk (*) can be changed by compiler modification.
+<br><a name="st80_bytecodes_table"></a>
+<center><table border="0" width="90%">
+<tbody><tr bgcolor="#CCCCCC">
+<td colspan="3" align="LEFT" bgcolor="#CCFFFF" valign="TOP">
+<center><b><font size="+1">The Smalltalk-80 Bytecodes</font></b></center>
+</td>
+</tr>
+
+<tr>
+<td><b>Range</b>
+<hr noshade="noshade" size="1" width="100%"></td>
+
+<td><b>Bits</b>
+<hr noshade="noshade" size="1" width="100%"></td>
+
+<td><b>Function</b>
+<hr noshade="noshade" size="1" width="100%"></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="BASELINE" width="8%"><tt>0-15</tt></td>
+
+<td align="LEFT" valign="TOP"><tt>0000iiii</tt></td>
+
+<td align="LEFT" valign="BASELINE">Push Receiver Variable <tt>#iiii</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="BASELINE"><tt>16-31</tt></td>
+
+<td align="LEFT" valign="TOP"><tt>0001iiii</tt></td>
+
+<td align="LEFT" valign="BASELINE">Push Temporary Location <tt>#iiii</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="BASELINE"><tt>32-63</tt></td>
+
+<td align="LEFT" valign="TOP"><tt>001iiiii</tt></td>
+
+<td align="LEFT" valign="BASELINE">Push Literal Constant <tt>#iiiii</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="BASELINE"><tt>64-95</tt></td>
+
+<td align="LEFT" valign="TOP"><tt>010iiiii</tt></td>
+
+<td align="LEFT" valign="BASELINE">Push Literal Variable <tt>#iiiii</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="BASELINE"><tt>96-103</tt></td>
+
+<td align="LEFT" valign="TOP"><tt>01100iii</tt></td>
+
+<td align="LEFT" valign="BASELINE">Pop and Store Receiver Variable <tt>#iii</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="BASELINE"><tt>104-111</tt></td>
+
+<td align="LEFT" valign="TOP"><tt>01101iii</tt></td>
+
+<td align="LEFT" valign="BASELINE">Pop and Store Temporary Location <tt>#iii</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="BASELINE"><tt>112-119</tt></td>
+
+<td align="LEFT" valign="TOP"><tt>01110iii</tt></td>
+
+<td align="LEFT" valign="BASELINE">Push (receiver, <tt>true</tt>, <tt>false</tt>,
+<tt>nil</tt>,
+<tt>-1</tt>,
+<tt>0</tt>,
+<tt>1</tt>,
+<tt>2</tt>) [<tt>iii</tt>]</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="BASELINE"><tt>120-123</tt></td>
+
+<td align="LEFT" valign="TOP"><tt>011110ii</tt></td>
+
+<td align="LEFT" valign="BASELINE">Return (receiver, <tt>true</tt>, <tt>false</tt>,
+<tt>nil</tt>)
+[<tt>ii</tt>] From Message</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="BASELINE"><tt>124-125</tt></td>
+
+<td align="LEFT" valign="TOP"><tt>0111110i</tt></td>
+
+<td align="LEFT" valign="BASELINE">Return Stack Top From (Message, Block) [<tt>i</tt>]</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="BASELINE"><tt>126-127</tt></td>
+
+<td align="LEFT" valign="TOP"><tt>0111111i</tt></td>
+
+<td align="LEFT" valign="BASELINE">unused</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="BASELINE"><tt>128</tt></td>
+
+<td align="LEFT" nowrap="nowrap" valign="TOP"><tt>10000000 jjkkkkkk</tt></td>
+
+<td align="LEFT" valign="TOP">Push (Receiver Variable, Temporary Location,
+Literal Constant, Literal Variable) [<tt>jj</tt>] <tt>#kkkkkk</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="BASELINE"><tt>129</tt></td>
+
+<td align="LEFT" nowrap="nowrap" valign="TOP"><tt>10000001 jjkkkkkk</tt></td>
+
+<td align="LEFT" valign="BASELINE">Store (Receiver Variable, Temporary Location,
+Illegal, Literal Variable) [<tt>jj</tt>] <tt>#kkkkkk</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="BASELINE"><tt>130</tt></td>
+
+<td align="LEFT" nowrap="nowrap" valign="TOP"><tt>10000010 jjkkkkkk</tt></td>
+
+<td align="LEFT" valign="BASELINE">Pop and Store (Receiver Variable, Temporary
+Location, Illegal, Literal Variable) [<tt>jj</tt>] <tt>#kkkkkk</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="BASELINE"><tt>131</tt></td>
+
+<td align="LEFT" nowrap="nowrap" valign="TOP"><tt>10000011 jjjkkkkk</tt></td>
+
+<td align="LEFT" valign="BASELINE">Send Literal Selector <tt>#kkkkk</tt> With
+<tt>jjj</tt>
+Arguments</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="BASELINE"><tt>132</tt></td>
+
+<td align="LEFT" nowrap="nowrap" valign="TOP"><tt>10000100 jjjjjjjj kkkkkkkk</tt></td>
+
+<td align="LEFT" valign="BASELINE">Send Literal Selector <tt>#kkkkkkkk</tt>
+With <tt>jjjjjjjj</tt> Arguments</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="BASELINE"><tt>133</tt></td>
+
+<td align="LEFT" nowrap="nowrap" valign="TOP"><tt>10000101 jjjkkkkk</tt></td>
+
+<td align="LEFT" valign="BASELINE">Send Literal Selector <tt>#kkkkk</tt> To
+Superclass With <tt>jjj</tt> Arguments</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="BASELINE"><tt>134</tt></td>
+
+<td align="LEFT" nowrap="nowrap" valign="TOP"><tt>10000110 jjjjjjjj kkkkkkkk</tt></td>
+
+<td align="LEFT" valign="BASELINE">Send Literal Selector <tt>#kkkkkkkk</tt>
+To Superclass With <tt>jjjjjjjj</tt> Arguments</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="BASELINE"><tt>135</tt></td>
+
+<td align="LEFT" valign="TOP"><tt>10000111</tt></td>
+
+<td align="LEFT" valign="BASELINE">Pop Stack Top</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="BASELINE"><tt>136</tt></td>
+
+<td align="LEFT" valign="TOP"><tt>10001000</tt></td>
+
+<td align="LEFT" valign="BASELINE">Duplicate Stack Top</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="BASELINE"><tt>137</tt></td>
+
+<td align="LEFT" valign="TOP"><tt>10001001</tt></td>
+
+<td align="LEFT" valign="BASELINE">Push Active Context</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="BASELINE"><tt>138-143</tt></td>
+
+<td align="CENTER" valign="BASELINE"></td>
+
+<td align="LEFT" valign="BASELINE">unused</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="BASELINE"><tt>144-151</tt></td>
+
+<td align="LEFT" valign="TOP"><tt>10010iii</tt></td>
+
+<td align="LEFT" valign="BASELINE">Jump <tt>iii</tt> <tt>+</tt> <tt>1</tt>
+(i.e., 1 through 8)</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="BASELINE"><tt>152-159</tt></td>
+
+<td align="LEFT" valign="TOP"><tt>10011iii</tt></td>
+
+<td align="LEFT" valign="BASELINE">Pop and Jump 0n False <tt>iii</tt> <tt>+1</tt>
+(i.e., 1 through 8)</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="BASELINE"><tt>160-167</tt></td>
+
+<td align="LEFT" nowrap="nowrap" valign="TOP"><tt>10100iii jjjjjjjj</tt></td>
+
+<td align="LEFT" valign="BASELINE">Jump(<tt>iii</tt> <tt>-</tt> <tt>4</tt>)
+<tt>*256+jjjjjjjj</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="BASELINE"><tt>168-171</tt></td>
+
+<td align="LEFT" nowrap="nowrap" valign="TOP"><tt>101010ii jjjjjjjj</tt></td>
+
+<td align="LEFT" valign="BASELINE">Pop and Jump On True <tt>ii</tt> <tt>*256+jjjjjjjj</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="BASELINE"><tt>172-175</tt></td>
+
+<td align="LEFT" nowrap="nowrap" valign="TOP"><tt>101011ii jjjjjjjj</tt></td>
+
+<td align="LEFT" valign="BASELINE">Pop and Jump On False <tt>ii</tt> <tt>*256+jjjjjjjj</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="BASELINE"><tt>176-191</tt></td>
+
+<td align="LEFT" valign="TOP"><tt>1011iiii</tt></td>
+
+<td align="LEFT" valign="BASELINE">Send Arithmetic Message <tt>#iiii</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="BASELINE"><tt>192-207</tt></td>
+
+<td align="LEFT" valign="TOP"><tt>1100iiii</tt></td>
+
+<td align="LEFT" valign="BASELINE">Send Special Message <tt>#iiii</tt></td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="BASELINE"><tt>208-223</tt></td>
+
+<td align="LEFT" valign="TOP"><tt>1101iiii</tt></td>
+
+<td align="LEFT" valign="BASELINE">Send Literal Selector <tt>#iiii</tt> With
+<tt>No</tt>
+Arguments</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="BASELINE"><tt>224-239</tt></td>
+
+<td align="LEFT" valign="TOP"><tt>1110iiii</tt></td>
+
+<td align="LEFT" valign="BASELINE">Send Literal Selector <tt>#iiii</tt> With
+<tt>1</tt>
+Argument</td>
+</tr>
+
+<tr>
+<td align="LEFT" valign="TOP"><tt>240-255</tt>
+<hr noshade="noshade" size="1" width="100%"></td>
+
+<td align="LEFT" valign="TOP"><tt>1111iiii</tt>
+<hr noshade="noshade" size="1" width="100%"></td>
+
+<td align="LEFT" valign="TOP">Send Literal Selector <tt>#iiii</tt> With <tt>2</tt>
+Arguments&nbsp;
+<hr noshade="noshade" size="1" width="100%"></td>
+</tr>
+</tbody></table></center>
+
+<center>
+<hr size="1" width="80%"><a name="StackBytecodes28"></a><b><font color="#3333FF"><font size="+2">Stack
+Bytecodes</font></font></b>
+<hr size="1" width="80%"></center>
+The stack bytecodes all perform simple operations on the active context's
+evaluation stack.
+<ul>
+<li>
+107 bytecodes <i>push</i> an object pointer on the stack</li>
+
+<ul>
+<li>
+99 push an object pointer found in the object memory</li>
+
+<li>
+7 push a constant object pointer</li>
+
+<li>
+1 pushes the interpreter's active context register (<tt>activeContext</tt>)</li>
+</ul>
+
+<li>
+18 bytecodes <i>store</i> an object pointer found on the stack into the
+object memory</li>
+
+<ul>
+<li>
+17 of these also remove it from the stack</li>
+
+<li>
+1 leaves it on the stack</li>
+</ul>
+
+<li>
+1 bytecode <i>removes</i> an object pointer from the stack without storing
+it anywhere.</li>
+</ul>
+The routines used to manipulate the stack were described in the section
+of the previous chapter on contexts (<tt>push:</tt>, <tt>popStack</tt>,
+<tt>pop:</tt>).
+The <tt>stackBytecode</tt> routine dispatches to the appropriate routine
+for the current bytecode.
+<dl>
+<dd>
+<b>stackBytecode</b></dd>
+
+<dl>
+<dd>
+(currentBytecode between: 0 and: 15)</dd>
+
+<dl>
+<dd>
+ifTrue: [^self pushReceiverVariableBytecode].</dd>
+</dl>
+
+<dd>
+(currentBytecode between: 16 and; 31)</dd>
+
+<dl>
+<dd>
+ifTrue: [^self pushTemporaryVariableBytecode].</dd>
+</dl>
+
+<dd>
+(currentBytecode between: 32 and: 63)</dd>
+
+<dl>
+<dd>
+ifTrue: [^self pushLiteralConstantBytecode].</dd>
+</dl>
+
+<dd>
+(currentBytecode between: 64 and: 95)</dd>
+
+<dl>
+<dd>
+ifTrue: [^self pushLiteralVariableBytecode].</dd>
+</dl>
+
+<dd>
+(currentBytecode between: 96 and: 103)</dd>
+
+<dl>
+<dd>
+ifTrue: [^self storeAndPopReceiverVariableBytecode].</dd>
+</dl>
+
+<dd>
+(currentBytecode between: 104 and: 111)</dd>
+
+<dl>
+<dd>
+ifTrue: [^self storeAndPopTemporaryVariableBytecode].</dd>
+</dl>
+
+<dd>
+currentBytecode = 112</dd>
+
+<dl>
+<dd>
+ifTrue: [^self pushReceiverBytecode].</dd>
+</dl>
+
+<dd>
+(currentBytecode between: 113 and: 119)</dd>
+
+<dl>
+<dd>
+ifTrue: [^self pushConstantBytecode].</dd>
+</dl>
+
+<dd>
+currentBytecode = 128</dd>
+
+<dl>
+<dd>
+ifTrue: [^self extendedPushBytecode].</dd>
+</dl>
+
+<dd>
+currentBytecode = 129</dd>
+
+<dl>
+<dd>
+ifTrue: [^self extendedStoreBytecode].</dd>
+</dl>
+
+<dd>
+currentBytecode = 130</dd>
+
+<dl>
+<dd>
+ifTrue: [^self extendedStoreAndPopBytecode].</dd>
+</dl>
+
+<dd>
+currentBytecode = 135</dd>
+
+<dl>
+<dd>
+ifTrue: [^self popStackBytecode].</dd>
+</dl>
+
+<dd>
+currentBytecode = 136</dd>
+
+<dl>
+<dd>
+ifTrue: [^self duplicateTopBytecode].</dd>
+</dl>
+
+<dd>
+currentBytecode = 137</dd>
+
+<dl>
+<dd>
+ifTrue: [^self pushActiveContextBytecode]</dd>
+</dl>
+</dl>
+</dl>
+There are single byte instructions that push the first 16 instance variables
+of the receiver and the first 16 temporary frame locations. Recall that
+the temporary frame includes the arguments and the temporary variables.
+<dl>
+<dd>
+<b>pushReceiverVariableBytecode</b></dd>
+
+<dl>
+<dd>
+| fieldIndex |</dd>
+
+<dd>
+fieldIndex := self extractBits: 12 to: 15</dd>
+
+<dl>
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; of: currentBytecode.</dd>
+</dl>
+</dl>
+
+<dd>
+self pushReceiverVariable: fieldIndex</dd>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>pushReceiverVariable: fieldIndex</b></dd>
+
+<dl>
+<dd>
+self push: (memory fetchPointer: fieldIndex</dd>
+
+<dl>
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ofObject: receiver)</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>pushTemporaryVariableBytecode</b></dd>
+
+<dl>
+<dd>
+| fieldIndex |</dd>
+
+<dd>
+fieldIndex := self extractBits: 12 to: 15</dd>
+
+<dl>
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; of: currentBytecode.</dd>
+</dl>
+</dl>
+
+<dd>
+self pushTemporaryVariable: fieldIndex</dd>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>pushTemporaryVariable:</b> temporaryIndex</dd>
+
+<dl>
+<dd>
+self push: (self temporary: temporaryIndex)</dd>
+</dl>
+</dl>
+There are also single byte instructions that reference the first 32 locations
+in the literal frame of the active context's method. The contents of one
+of these locations can be pushed with <tt>pushLiteralConstantBytecode</tt>.
+The contents of the value field of an <tt>Association</tt> stored in one
+of these locations can be pushed with <tt>pushLiteralVariableBytecode</tt>.
+<dl>
+<dd>
+<b>pushLiteralConstantBytecode</b></dd>
+
+<dl>
+<dd>
+| fieldIndex |</dd>
+
+<dd>
+fieldIndex := self extractBits: 11 to: 15</dd>
+
+<dl>
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; of: currentBytecode.</dd>
+</dl>
+</dl>
+
+<dd>
+self pushLiteralConstant: fieldIndex</dd>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>pushLiteralConstant: literalIndex</b></dd>
+
+<dl>
+<dd>
+self push: (self literal: literalIndex)</dd>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>pushLiteralVariableBytecode</b></dd>
+
+<dl>
+<dd>
+| fieldIndex |</dd>
+
+<dd>
+fieldIndex := self extractBits: 11 to: 15</dd>
+
+<dl>
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; of: currentBytecode.</dd>
+</dl>
+</dl>
+
+<dd>
+self pushLiteralVariable: fieldIndex</dd>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>pushLiteralVariable:</b> literalIndex</dd>
+
+<dl>
+<dd>
+| association |</dd>
+
+<dd>
+association := self literal: literalIndex.</dd>
+
+<dd>
+self push: (memory fetchPointer: ValueIndex</dd>
+
+<dl>
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ofObject: association)</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+<tt>Associations</tt> are objects with two fields, one for a name and one
+for a value. They are used to implement shared variables (global variables,
+class variables, and pool variables). The following routine initializes
+the index used to fetch the value field of <tt>Associations</tt>.
+<dl>
+<dd>
+<b>initializeAssociationIndex</b></dd>
+
+<dl>
+<dd>
+ValueIndex := 1</dd>
+</dl>
+</dl>
+The extended push bytecode can perform any of the four operations described
+above (receiver variable, temporary frame location, literal constant, or
+literal variable). However, instead of a limit of 16 or 32 variables accessible,
+it can access up to 64 instance variables, temporary locations, literal
+constants, or literal variables. The extended push bytecode is followed
+by a byte whose high order two bits determine which type of push is being
+done and whose low order six bits determine the offset to use.
+<dl>
+<dd>
+<b>extendedPushBytecode</b></dd>
+
+<dl>
+<dd>
+| descriptor variableType variableIndex |</dd>
+
+<dd>
+descriptor := self fetchByte.</dd>
+
+<dd>
+variableType := self extractBits: 8 to: 9</dd>
+
+<dl>
+<dl>
+<dl>
+<dd>
+of: descriptor.</dd>
+</dl>
+</dl>
+</dl>
+
+<dd>
+variableIndex := self extractBits: 10 to: 15</dd>
+
+<dl>
+<dl>
+<dl>
+<dd>
+&nbsp;of: descriptor.</dd>
+</dl>
+</dl>
+</dl>
+
+<dd>
+variableType = 0 ifTrue: [^self pushReceiverVariable: variableIndex].</dd>
+
+<dd>
+variableType = 1 ifTrue: [^self pushTemporaryVariable: variableIndex].</dd>
+
+<dd>
+variableType = 2 ifTrue: [^self pushLiteralConstant: variableIndex].</dd>
+
+<dd>
+variableType = 3 ifTrue: [^self pushLiteralVariable: variableIndex]</dd>
+</dl>
+</dl>
+The <tt>pushReceiverBytecode</tt> routine pushes a pointer to the active
+context's receiver. This corresponds to the use of <tt>self</tt> or <tt>super</tt>
+in a Smalltalk method.
+<dl>
+<dd>
+<b>pushReceiverBytecode</b></dd>
+
+<dl>
+<dd>
+^self push: receiver</dd>
+</dl>
+</dl>
+The <tt>duplicateTopBytecode</tt> routine pushes another copy of the object
+pointer on the top of the stack.
+<dl>
+<dd>
+<b>duplicateTopBytecode</b></dd>
+
+<dl>
+<dd>
+^self push: self stackTop</dd>
+</dl>
+</dl>
+The <tt>pushConstantBytecode</tt> routine pushes one of seven constant
+object pointers (<tt>true</tt>, <tt>false</tt>, <tt>nil</tt>, <tt>-1</tt>,
+<tt>0</tt>,
+<tt>1</tt>,
+or <tt>2</tt>).
+<dl>
+<dd>
+<b>pushConstantBytecode</b></dd>
+
+<dl>
+<dd>
+currentBytecode = 113 ifTrue: [^self push: TruePointer].</dd>
+
+<dd>
+currentBytecode = 114 ifTrue: [^self push: FalsePointer].</dd>
+
+<dd>
+currentBytecode = 115 ifTrue: [^self push: NilPointer].</dd>
+
+<dd>
+currentBytecode = 116 ifTrue: [^self push: MinusOnePointer].</dd>
+
+<dd>
+currentBytecode = 117 ifTrue: [^self push: ZeroPointer].</dd>
+
+<dd>
+currentBytecode = 118 ifTrue: [^self push: OnePointer].</dd>
+
+<dd>
+currentBytecode = 119 ifTrue: [^self push: TwoPointer]</dd>
+</dl>
+</dl>
+The <tt>pushActiveContextBytecode</tt> routine pushes a pointer to the
+active context itself. This corresponds to the use of <tt>thisContext</tt>
+in a Smalltalk method.
+<dl>
+<dd>
+<b>pushActiveContextBytecode</b></dd>
+
+<dl>
+<dd>
+^self push: activeContext</dd>
+</dl>
+</dl>
+The store bytecodes transfer references in the opposite direction from
+the push bytecodes; from the top of the stack to the receiver's instance
+variables, the temporary frame, or the literal frame. There are single
+byte versions for storing into the first eight variables of the receiver
+or the temporary frame and then popping the stack.
+<dl>
+<dd>
+<b>storeAndPopReceiverVariableBytecode</b></dd>
+
+<dl>
+<dd>
+| variableIndex |</dd>
+
+<dd>
+variableIndex := self extractBits: 13 to: 15</dd>
+
+<dl>
+<dl>
+<dl>
+<dd>
+&nbsp;of: currentBytecode.</dd>
+</dl>
+</dl>
+</dl>
+
+<dd>
+memory storePointer: variableIndex</dd>
+
+<dl>
+<dd>
+&nbsp;&nbsp; ofObject: receiver</dd>
+
+<dd>
+&nbsp;&nbsp; withValue: self popStack</dd>
+</dl>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>storeAndPopTemporaryVariableBytecode</b></dd>
+
+<dl>
+<dd>
+| variableIndex |</dd>
+
+<dd>
+variableIndex := self extractBits: 13 to: 15</dd>
+
+<dl>
+<dl>
+<dl>
+<dd>
+&nbsp;of: currentBytecode.</dd>
+</dl>
+</dl>
+</dl>
+
+<dd>
+memory storePointer: variableIndex + TempFrameStart</dd>
+
+<dl>
+<dd>
+&nbsp;&nbsp; ofObject: homeContext</dd>
+
+<dd>
+&nbsp;&nbsp; withValue: self popStack</dd>
+</dl>
+</dl>
+</dl>
+Stores into variables other than those accessible by the single byte versions
+are accomplished by two extended store bytecodes. One pops the stack after
+storing and the other does not. Both extended stores take a following byte
+of the same form as the extended push. It is illegal, however, to follow
+an extended store with a byte of the form <tt>10xxxxxx</tt> since this
+would mean changing the value of a literal constant.
+<dl>
+<dd>
+<b>extendedStoreAndPopBytecode</b></dd>
+
+<dl>
+<dd>
+self extendedStoreBytecode.</dd>
+
+<dd>
+self popStackBytecode</dd>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>extendedStoreBytecode</b></dd>
+
+<dl>
+<dd>
+| descriptor variableType variableIndex association |</dd>
+
+<dd>
+descriptor := self fetchByte.</dd>
+
+<dd>
+variableType := self extractBits: 8 to: 9</dd>
+
+<dl>
+<dl>
+<dl>
+<dd>
+of: descriptor.</dd>
+</dl>
+</dl>
+</dl>
+
+<dd>
+variableIndex := self extractBits: 10 to: 15</dd>
+
+<dl>
+<dl>
+<dl>
+<dd>
+&nbsp;of: descriptor.</dd>
+</dl>
+</dl>
+</dl>
+
+<dd>
+variableType = 0 ifTrue:</dd>
+
+<dl>
+<dd>
+[^memory storePointer: variableIndex</dd>
+
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ofObject: receiver</dd>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; withValue: self stackTop].</dd>
+</dl>
+</dl>
+
+<dd>
+variableType = 1 ifTrue:</dd>
+
+<dl>
+<dd>
+[^memory storePointer: variableIndex + TempFrameStart</dd>
+
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ofObject: homeContext</dd>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; withValue: self stackTop].</dd>
+</dl>
+</dl>
+
+<dd>
+variableType=2&nbsp; ifTrue:</dd>
+
+<dl>
+<dd>
+[^self error: 'illegal store'].</dd>
+</dl>
+
+<dd>
+variableType=3&nbsp; ifTrue:</dd>
+
+<dl>
+<dd>
+[association := self literal: variableIndex.</dd>
+
+<dd>
+^memory storePointer: ValueIndex</dd>
+
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp; ofObject: association</dd>
+
+<dd>
+&nbsp;&nbsp;&nbsp; withValue: self stackTop]</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+The last stack bytecode removes the top object pointer from the stack without
+doing anything else with it.
+<dl>
+<dd>
+<b>popStackBytecode</b></dd>
+
+<dl>
+<dd>
+self popStack</dd>
+</dl>
+</dl>
+
+<center>
+<hr size="1" width="80%"><a name="JumpBytecodes28"></a><b><font color="#3333FF"><font size="+2">Jump
+Bytecodes</font></font></b>
+<hr size="1" width="80%"></center>
+The jump bytecodes change the active context's instruction pointer by a
+specified amount. Unconditional jumps change the instruction pointer whenever
+they are encountered. Conditional jumps only change the instruction pointer
+if the object pointer on the top of the stack is a specified Boolean object
+(either <tt>true</tt> or <tt>false</tt>). Both unconditional and conditional
+jumps have a short (single-byte) and a long (two-byte) form.
+<dl>
+<dd>
+<b>jumpBytecode</b></dd>
+
+<dl>
+<dd>
+(currentBytecode between: 144 and: 151)</dd>
+
+<dl>
+<dd>
+ifTrue: [^self shortUnconditionalJump].</dd>
+</dl>
+
+<dd>
+(currentBytecode between: 152 and: 159)</dd>
+
+<dl>
+<dd>
+ifTrue: [^self shortConditionalJump].</dd>
+</dl>
+
+<dd>
+(currentBytecode between: 160 and: 167)</dd>
+
+<dl>
+<dd>
+ifTrue: [^self longUnconditionalJump].</dd>
+</dl>
+
+<dd>
+(currentBytecode between: 168 and: 175)</dd>
+
+<dl>
+<dd>
+ifTrue: [^self longConditionalJump]</dd>
+</dl>
+</dl>
+</dl>
+The jump bytecodes use the <tt>jump:</tt> routine to actually change the
+bytecode index.
+<dl>
+<dd>
+<b>jump: offset</b></dd>
+
+<dl>
+<dd>
+instructionPointer := instructionPointer + offset</dd>
+</dl>
+</dl>
+The eight short unconditional jumps advance the instruction pointer by
+1 through 8.
+<dl>
+<dd>
+<b>shortUnconditionalJump</b></dd>
+
+<dl>
+<dd>
+| offset |</dd>
+
+<dd>
+offset := self extractBits: 13 to: 15</dd>
+
+<dl>
+<dl>
+<dd>
+of: currentBytecode.</dd>
+</dl>
+</dl>
+
+<dd>
+self jump: offset + 1</dd>
+</dl>
+</dl>
+The eight long unconditional jumps are followed by another byte. The low
+order three bits of the jump bytecode provide the high order three bits
+of an 11-bit twos complement displacement to be added to the instruction
+pointer. The byte following the jump provides the low order eight bits
+of the displacement. So long unconditional jumps can jump up to 1023 forward
+and 1024 back.
+<dl>
+<dd>
+<b>longUnconditionalJump</b></dd>
+
+<dl>
+<dd>
+| offset |</dd>
+
+<dd>
+offset := self extractBits 13 to: 15</dd>
+
+<dl>
+<dl>
+<dd>
+of: currentBytecode.</dd>
+</dl>
+</dl>
+
+<dd>
+self jump: offset - 4 * 256 + self fetchByte</dd>
+</dl>
+</dl>
+The conditional jumps use the <tt>jumpIf:by:</tt> routine to test the top
+of the stack and decide whether to perform the jump. The top of stack is
+discarded after it is tested.
+<dl>
+<dd>
+<b>jumpIf: condition by: offset</b></dd>
+
+<dl>
+<dd>
+| boolean |</dd>
+
+<dd>
+boolean := self popStack.</dd>
+
+<dd>
+boolean = condition</dd>
+
+<dl>
+<dd>
+ifTrue: [self jump: offset]</dd>
+
+<dd>
+ifFalse: [(boolean = TruePointer) | (boolean = FalsePointer)</dd>
+
+<dl>
+<dl>
+<dd>
+ifFalse: [self unPop: 1.</dd>
+
+<dl>
+<dd>
+self sendMustBeBoolean]]</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+</dl>
+</dl>
+The conditional jumps are used in the compiled form of messages to booleans
+(e.g., <tt>ifTrue:</tt> and <tt>whileFalse:</tt>). If the top of the stack
+at the time of a conditional jump is not <tt>true</tt> or <tt>false</tt>
+it is an error since an object other than a boolean has been sent a message
+that only booleans understand. Instead of sending <tt>doesNotUnderstand:</tt>,
+the interpreter sends <tt>mustBeBoolean</tt> to it.
+<dl>
+<dd>
+<b>sendMustBeBoolean</b></dd>
+
+<dl>
+<dd>
+self sendSelector: MustBeBooleanSelector</dd>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; argumentCount: 0</dd>
+</dl>
+</dl>
+The <tt>sendSelector:argumentCount:</tt> routine is described in the next
+section on send bytecodes.
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; The eight short conditional
+jumps advance the instruction pointer by 1 through 8 if the top of the
+stack is <tt>false</tt>.
+<dl>
+<dd>
+<b>shortConditionalJump</b></dd>
+
+<dl>
+<dd>
+| offset |</dd>
+
+<dd>
+offset := self extractBits: 13 to: 15</dd>
+
+<dl>
+<dl>
+<dd>
+of: currentBytecode.</dd>
+</dl>
+</dl>
+
+<dd>
+self jumpIf: FalsePointer</dd>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; by: offset + 1</dd>
+</dl>
+</dl>
+So, there are three possible outcomes to a short conditional jump:
+<ul>
+<li>
+If the top of the stack is <tt>false</tt>, the jump is taken.</li>
+
+<li>
+If the top of the stack is <tt>true</tt>, the jump is not taken.</li>
+
+<li>
+If the top of the stack is neither, <tt>mustBeBoolean</tt> is sent to it.</li>
+</ul>
+Half of the long conditional jumps perform the jump if the top of the stack
+is <tt>false</tt> while the other half perform the jump if it is <tt>true</tt>.
+The low order two bits of the bytecode become the high order two bits of
+a 10-bit unsigned displacement. The byte following the jump provides the
+low order eight bits of the displacement. So long conditional jumps can
+jump up to 1023 forward.
+<dl>
+<dd>
+<b>longConditionalJump</b></dd>
+
+<dl>
+<dd>
+| offset |</dd>
+
+<dd>
+offset := self extractBits: 14 to: 15</dd>
+
+<dl>
+<dl>
+<dd>
+of: currentBytecode.</dd>
+</dl>
+</dl>
+
+<dd>
+offset := offset * 256 + self fetchByte.</dd>
+
+<dd>
+(currentBytecode between: 168 and: 171)</dd>
+
+<dl>
+<dd>
+ifTrue: [^self jumpIf: TruePointer by: offset].</dd>
+</dl>
+
+<dd>
+(currentBytecode between: 172 and: 176)</dd>
+
+<dl>
+<dd>
+ifTrue: [^self jumpIf: FalsePointer by: offset]</dd>
+</dl>
+</dl>
+</dl>
+
+<center>
+<hr size="1" width="80%"><a name="SendBytecodes28"></a><b><font color="#3333FF"><font size="+2">Send
+Bytecodes</font></font></b>
+<hr size="1" width="80%"></center>
+The send bytecodes cause a message to be sent. The object pointers for
+the receiver and the arguments of the message are found on the active context's
+evaluation stack. The send bytecode determines the selector of the message
+and how many arguments to take from the stack. The number of arguments
+is also indicated in the <tt>CompiledMethod</tt> invoked by the message.
+The compiler guarantees that this information is redundant except when
+a <tt>CompiledMethod</tt> is reached by a <tt>perform:</tt> message, in
+which case it is checked to make sure the <tt>CompiledMethod</tt> takes
+the right number of arguments. The <tt>perform:</tt> messages will be discussed
+in the next chapter in a section on control primitives.
+<br>&nbsp;&nbsp;&nbsp; The selectors of most messages are found in the
+literal frame of the <tt>CompiledMethod</tt>. The literal-selector bytecodes
+and the extended-send bytecodes specify the argument count of the message
+and the index of the selector in the literal frame. The 32 special-selector
+bytecodes specify the offset of the selector and argument count in an <tt>Array</tt>
+in the object memory. This <tt>Array</tt> is shared by all <tt>CompiledMethods</tt>
+in the system.
+<dl>
+<dd>
+<b>sendBytecode</b></dd>
+
+<dl>
+<dd>
+(currentBytecode between: 131 and: 134)</dd>
+
+<dl>
+<dd>
+ifTrue: [^self extendedSendBytecode].</dd>
+</dl>
+
+<dd>
+(currentBytecode between: 176 and: 207)</dd>
+
+<dl>
+<dd>
+ifTrue: [^self sendSpecialSelectorBytecode].</dd>
+</dl>
+
+<dd>
+(currentBytecode between: 208 and: 255)</dd>
+
+<dl>
+<dd>
+ifTrue: [^self sendLiteralSelectorBytecode]</dd>
+</dl>
+</dl>
+</dl>
+The literal-selector bytecodes are single bytes that can specify 0, 1,
+or 2 arguments and a selector in any one of the first 16 locations of the
+literal frame. Both the selector index and the argument count are encoded
+in the bits of the bytecode.
+<dl>
+<dd>
+<b>sendLiteralSelectorBytecode</b></dd>
+
+<dl>
+<dd>
+| selector |</dd>
+
+<dd>
+selector := self literal: (self extractBits: 12 to: 15</dd>
+
+<dl>
+<dl>
+<dl>
+<dl>
+<dd>
+&nbsp;of: currentBytecode).</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+
+<dd>
+self sendSelector: selector</dd>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; argumentCount: (self extractBits: 10 to:
+11</dd>
+
+<dl>
+<dl>
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; of: currentBytecode) - 1</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+</dl>
+Most of the send bytecodes call the <tt>sendSelector:argumentCount:</tt>
+routine after determining the appropriate selector and argument count.
+This routine sets up the variables <tt>messageSelector</tt> and <tt>argumentCount</tt>,
+which are available to the other routines in the interpreter that will
+lookup the message and perhaps activate a method.
+<dl>
+<dd>
+<b>sendSelector: selector argumentCount: count</b></dd>
+
+<dl>
+<dd>
+| newReceiver |</dd>
+
+<dd>
+messageSelector := selector.</dd>
+
+<dd>
+argumentCount := count.</dd>
+
+<dd>
+newReceiver := self stackValue: argumentCount.</dd>
+
+<dd>
+self sendSelectorToClass: (memory fetchClassOf: newReceiver)</dd>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>sendSelectorToClass: </b>classPointer</dd>
+
+<dl>
+<dd>
+self findNewMethodInClass: classPointer.</dd>
+
+<dd>
+self executeNewMethod</dd>
+</dl>
+</dl>
+The interpreter uses a method cache to reduce the number of dictionary
+lookups necessary to find <tt>CompiledMethods</tt> associated with selectors.
+The method cache may be omitted by substituting a call on <tt>lookupMethodInClass:</tt>
+for the call on <tt>findNewMethodInClass:</tt> in <tt>sendSelectorToClass:</tt>
+above. The <tt>lookupMethodInClass:</tt> routine is described in the previous
+chapter in a section on classes. The cache may be implemented in various
+ways. The following routine uses four sequential locations in an <tt>Array</tt>
+for each entry. The four locations store the selector, class, <tt>CompiledMethod</tt>,
+and primitive index for the entry. This routine does not allow for reprobes.
+<dl>
+<dd>
+<b>findNewMethodInClass: class</b></dd>
+
+<dl>
+<dd>
+| hash |</dd>
+
+<dd>
+hash := (((messageSelector bitAnd: class) bitAnd: 16rFF) bitShift: 2) +
+1.</dd>
+
+<dd>
+((methodCache at: hash) = messageSelector</dd>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; and: [(methodCache at: hash + 1) = class])</dd>
+
+<dl>
+<dd>
+ifTrue: [newMethod := methodCache at: hash + 2.</dd>
+
+<dl>
+<dd>
+primitiveIndex := methodCache at: hash + 3]</dd>
+</dl>
+
+<dd>
+ifFalse: [self lookupMethodInClass: class.</dd>
+
+<dl>
+<dd>
+methodCache at: hash put: messageSelector.</dd>
+
+<dd>
+methodCache at: hash + 1 put: class.</dd>
+
+<dd>
+methodCache at: hash + 2 put: newMethod.</dd>
+
+<dd>
+methodCache at: hash + 3 put: primitiveIndex]</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+The method cache is initialized with the following routine.
+<dl>
+<dd>
+<b>initializeMethodCache</b></dd>
+
+<dl>
+<dd>
+methodCacheSize := 1024.</dd>
+
+<dd>
+methodCache := Array new: methodCacheSize</dd>
+</dl>
+</dl>
+The <tt>executeNewMethod</tt> routine calls a primitive routine if one
+is associated with the <tt>CompiledMethod</tt>. The <tt>primitiveResponse</tt>
+routine returns <tt>false</tt> if no primitive is indicated or the primitive
+routine is unable to produce a result. In that case, the <tt>CompiledMethod</tt>
+is activated. Primitive routines and the <tt>primitiveResponse</tt> routine
+will be described in the <a href="../bluebook/bluebook_chapter29.html">next chapter</a>.
+<dl>
+<dd>
+<b>executeNewMethod</b></dd>
+
+<dl>
+<dd>
+self primitiveResponse</dd>
+
+<dl>
+<dd>
+ifFalse: [self activateNewMethod]</dd>
+</dl>
+</dl>
+</dl>
+The routine that activates a method creates a <tt>MethodContext</tt> and
+transfers the receiver and arguments from the currently active context's
+stack to the new context's stack, It then makes this new context be the
+interpreter's active context.
+<dl>
+<dd>
+<b>activateNewMethod</b></dd>
+
+<dl>
+<dd>
+| contextSize newContext newReceiver |</dd>
+
+<dd>
+(self largeContextFlagOf: newMethod) = 1</dd>
+
+<dl>
+<dd>
+ifTrue: [contextSize := 32 + TempFrameStart]</dd>
+
+<dd>
+ifFalse: [contextSize := 12 + TempFrameStart].</dd>
+</dl>
+
+<dd>
+newContext := memory instantiateClass: ClassMethodContextPointer</dd>
+
+<dl>
+<dl>
+<dl>
+<dd>
+&nbsp; withPointers: contextSize.</dd>
+</dl>
+</dl>
+</dl>
+
+<dd>
+memory storePointer: SenderIndex</dd>
+
+<dl>
+<dd>
+&nbsp;&nbsp; ofObject: newContext</dd>
+
+<dd>
+&nbsp;&nbsp; withValue: activeContext.</dd>
+</dl>
+
+<dd>
+self storeInstructionPointerValue: (self initialInstructionPointerOfMethod:
+newMethod)</dd>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; inContext: newContext.</dd>
+
+<dd>
+self storeStackPointerValue: (self temporaryCountof: newMethod)</dd>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; inContext: newContext.</dd>
+
+<dd>
+memory storePointer: MethodIndex</dd>
+
+<dl>
+<dd>
+&nbsp;&nbsp; ofObject: newContext</dd>
+
+<dd>
+&nbsp;&nbsp; withValue: newMethod.</dd>
+</dl>
+
+<dd>
+self transfer: argumentCount + 1</dd>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; fromIndex: stackPointer - argumentCount</dd>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ofObject: activeContext</dd>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; toIndex: receiverIndex</dd>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ofObject: newContext.</dd>
+
+<dd>
+self pop: argumentCount + 1.</dd>
+
+<dd>
+self newActiveContext: newContext</dd>
+</dl>
+</dl>
+There are four extended-send bytecodes. The first two have the same effect
+as the literal-selector bytecodes except that the selector index and argument
+count are found in one or two following bytes instead of in the bytecode
+itself. The other two extended-send bytecodes are used for superclass messages.
+<dl>
+<dd>
+<b>extendedSendBytecode</b></dd>
+
+<dl>
+<dd>
+currentBytecode = 131 ifTrue: [^self singleExtendedSendBytecode].</dd>
+
+<dd>
+currentBytecode = 132 ifTrue: [^self doubleExtendedSendBytecode].</dd>
+
+<dd>
+currentBytecode = 133 ifTrue: [^self singleExtendedSuperBytecode].</dd>
+
+<dd>
+currentBytecode = 134 ifTrue: [^self doubleExtendedSuperBytecode]</dd>
+</dl>
+</dl>
+The first form of extended send is followed by a single byte specifying
+the number of arguments in its high order three bits and selector index
+in the low order five bits.
+<dl>
+<dd>
+<b>singleExtendedSendBytecode</b></dd>
+
+<dl>
+<dd>
+| descriptor selectorIndex |</dd>
+
+<dd>
+descriptor := self fetchByte.</dd>
+
+<dd>
+selectorIndex := self extractBits: 11 to: 15</dd>
+
+<dl>
+<dl>
+<dl>
+<dd>
+&nbsp;of: descriptor.</dd>
+</dl>
+</dl>
+</dl>
+
+<dd>
+self sendSelector: (self literal: selectorIndex)</dd>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; argumentCount: (self extractBits: 8 to:
+10</dd>
+
+<dl>
+<dl>
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; of: descriptor)</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+</dl>
+The second form of extended send bytecode is followed by two bytes; the
+first is the number of arguments and the second is the index of the selector
+in the literal frame.
+<dl>
+<dd>
+<b>doubleExtendedSendBytecode</b></dd>
+
+<dl>
+<dd>
+| count selector |</dd>
+
+<dd>
+count := self fetchByte.</dd>
+
+<dd>
+selector := self literal: self fetchByte.</dd>
+
+<dd>
+self sendSelector: selector</dd>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; argumentCount: count</dd>
+</dl>
+</dl>
+When the compiler encounters a message to super in a symbolic method, it
+uses the bytecode that pushes self for the receiver, but it uses an extended-super
+bytecode to indicate the selector instead of a regular send bytecode. The
+two extended-super bytecodes are similar to the two extended-send bytecodes.
+The first is followed by a single byte and the second by two bytes that
+are interpreted exactly as for the extended-send bytecodes. The only difference
+in what these bytecodes do is that they start the message lookup in the
+superclass of the class in which the current <tt>CompiledMethod</tt> was
+found. Note that this is not necessarily the immediate superclass of self.
+Specifically, it will not be the immediate superclass of self if the <tt>CompiledMethod</tt>
+containing the extended-super bytecode was found in a superclass of self
+originally. All <tt>CompiledMethods</tt> that contain extended-super bytecodes
+have the class in which they are found as their last literal variable.
+<dl>
+<dd>
+<b>singleExtendedSuperBytecode</b></dd>
+
+<dl>
+<dd>
+| descriptor selectorIndex methodClass |</dd>
+
+<dd>
+descriptor := self fetchByte.</dd>
+
+<dd>
+argumentCount := self extractBits: 8 to: 10</dd>
+
+<dl>
+<dl>
+<dl>
+<dd>
+&nbsp; of: descriptor.</dd>
+</dl>
+</dl>
+</dl>
+
+<dd>
+selectorIndex := self extractBits: 11 to: 15</dd>
+
+<dl>
+<dl>
+<dl>
+<dd>
+&nbsp;of: descriptor.</dd>
+</dl>
+</dl>
+</dl>
+
+<dd>
+messageSelector := self literal: selectorIndex.</dd>
+
+<dd>
+methodClass := self methodClassOf: method.</dd>
+
+<dd>
+self sendSelectorToClass: (self superclassOf: methodClass)</dd>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>doubleExtendedSuperBytecode</b></dd>
+
+<dl>
+<dd>
+| methodClass |</dd>
+
+<dd>
+argumentCount := self fetchByte.</dd>
+
+<dd>
+messageSelector := self literal: self fetchByte.</dd>
+
+<dd>
+methodClass := self methodClassOf: method.</dd>
+
+<dd>
+self sendSelectorToClass: (self superclassOf: methodClass)</dd>
+</dl>
+</dl>
+The set of special selectors can be used in a message without being included
+in the literal frame. An <tt>Array</tt> in the object memory contains the
+object pointers of the selectors in alternating locations. The argument
+count for each selector is stored in the location following the selector's
+object pointer. The <tt>specialSelectorPrimitiveResponse</tt> routine will
+be described in the next chapter.
+<dl>
+<dd>
+<b>sendSpecialSelectorBytecode</b></dd>
+
+<dl>
+<dd>
+| selectorIndex selector count |</dd>
+
+<dd>
+self specialSelectorPrimitiveResponse</dd>
+
+<dl>
+<dd>
+ifFalse: [selectorIndex := (currentBytecode - 176) * 2.</dd>
+
+<dl>
+<dd>
+selector := memory fetchPointer: selectorIndex</dd>
+
+<dl>
+<dl>
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ofObject: SpecialSelectorsPointer.</dd>
+</dl>
+</dl>
+
+<dd>
+count := self fetchInteger: selectorIndex + 1</dd>
+
+<dl>
+<dl>
+<dd>
+ofObject: SpecialSelectorsPointer.</dd>
+</dl>
+</dl>
+
+<dd>
+self sendSelector: selector</dd>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; argumentCount: count]</dd>
+</dl>
+</dl>
+</dl>
+</dl>
+
+<center>
+<hr size="1" width="80%"><a name="ReturnBytecodes28"></a><b><font color="#3333FF"><font size="+2">Return
+Bytecodes</font></font></b>
+<hr size="1" width="80%"></center>
+There are six bytecodes that return control and a value from a context;
+five return the value of a message (invoked explicitly by "^" or implicitly
+at the end of a method) and the other one returns the value of a block
+(invoked implicitly at the end of a block). The distinction between the
+two types of return is that the former returns to the sender of the home
+context while the latter returns to the caller of the active context. The
+values returned from the five return bytecodes are: the receiver (<tt>self</tt>),
+<tt>true</tt>,
+<tt>false</tt>,
+<tt>nil</tt>,
+or the top of the stack. The last return bytecode returns the top of the
+stack as the value of a block.
+<dl>
+<dd>
+<b>returnBytecode</b></dd>
+
+<dl>
+<dd>
+currentBytecode = 120</dd>
+
+<dl>
+<dd>
+ifTrue: [^self returnValue: receiver to: self sender].</dd>
+</dl>
+
+<dd>
+currentBytecode = 121</dd>
+
+<dl>
+<dd>
+ifTrue: [^self returnValue: TruePointer to: self sender].</dd>
+</dl>
+
+<dd>
+currentBytecode = 122</dd>
+
+<dl>
+<dd>
+ifTrue: [^self returnValue: FalsePointer to: self sender].</dd>
+</dl>
+
+<dd>
+currentBytecode = 123</dd>
+
+<dl>
+<dd>
+ifTrue: [^self returnValue: NilPointer to: self sender].</dd>
+</dl>
+
+<dd>
+currentBytecode = 124</dd>
+
+<dl>
+<dd>
+ifTrue: [^self returnValue: self popStack to: self sender].</dd>
+</dl>
+
+<dd>
+currentBytecode = 125</dd>
+
+<dl>
+<dd>
+ifTrue: [^self returnValue: self popStack to: self caller]</dd>
+</dl>
+</dl>
+</dl>
+The simple way to return a value to a context would be to simply make it
+the active context and push the value on its stack.
+<dl>
+<dd>
+<b>simpleReturnValue: resultPointer to: contextPointer</b></dd>
+
+<dl>
+<dd>
+self newActiveContext: contextPointer.</dd>
+
+<dd>
+self push: resultPointer</dd>
+</dl>
+</dl>
+However, there are three situations in which this routine is too simple
+to work correctly. If the sender of the active context were <tt>nil</tt>;
+this routine would store a <tt>nil</tt> in the interpreter's active context
+pointer, bringing the system to an unpleasant halt. In order to prevent
+this, the actual <tt>returnValue:to:</tt> routine first checks to see if
+the sender is <tt>nil</tt>. The interpreter also prevents returns to a
+context that has already been returned from. It does this by storing <tt>nil</tt>
+in the instruction pointer of the active context on return and checking
+for a <tt>nil</tt> instruction pointer of the context being returned to.
+Both of these situations can arise since contexts are objects and can be
+manipulated by user programs as well as by the interpreter. If either situation
+arises, the interpreter sends a message to the active context informing
+it of the problem. The third situation will arise in systems that automatically
+deallocate objects based on their reference counts. The active context
+may be deallocated as it is returning. It, in turn, may contain the only
+reference to the result being returned. In this case, the result will be
+deallocated before it can be pushed on the new context's stack. Because
+of these considerations, the <tt>returnValue:</tt> routine must be somewhat
+more complicated.
+<dl>
+<dd>
+<b>returnValue: resultPointer to: contextPointer</b></dd>
+
+<dl>
+<dd>
+| sendersIP |</dd>
+
+<dd>
+contextPointer = NilPointer</dd>
+
+<dl>
+<dd>
+ifTrue: [self push: activeContext.</dd>
+
+<dl>
+<dd>
+self push: resultPointer.</dd>
+
+<dd>
+^self sendSelector: CannotReturnSelector</dd>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; argumentCount: 1].</dd>
+</dl>
+</dl>
+
+<dd>
+sendersIP := memory fetchPointer: InstructionPointerIndex</dd>
+
+<dl>
+<dl>
+<dl>
+<dd>
+&nbsp; ofObject: contextPointer.</dd>
+</dl>
+</dl>
+</dl>
+
+<dd>
+sendersIP = NilPointer</dd>
+
+<dl>
+<dd>
+ifTrue: [self push: activeContext.</dd>
+
+<dl>
+<dd>
+self push: resultPointer.</dd>
+
+<dd>
+^self sendSelector: CannotReturnSelector</dd>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; argumentCount: 1].</dd>
+</dl>
+</dl>
+
+<dd>
+memory increaseReferencesTo: resultPointer.</dd>
+
+<dd>
+self returnToActiveContext: contextPointer.</dd>
+
+<dd>
+self push: resultPointer.</dd>
+
+<dd>
+memory decreaseReferencesTo: resultPointer</dd>
+</dl>
+</dl>
+This routine prevents the deallocation of the result being returned by
+raising the reference count until it is pushed on the new stack. It could
+also have pushed the result before switching active contexts. The <tt>returnToActiveContext:</tt>
+routine is basically the same as the <tt>newActiveContext:</tt> routine
+except that instead of restoring any cached fields of the context being
+returned from, it stores <tt>nil</tt> into the sender and instruction pointer
+fields.
+<dl>
+<dd>
+<b>returnToActiveContext: aContext</b></dd>
+
+<dl>
+<dd>
+memory increaseReferencesTo: aContext.</dd>
+
+<dd>
+self nilContextFields.</dd>
+
+<dd>
+memory decreaseReferencesTo: activeContext.</dd>
+
+<dd>
+activeContext := aContext.</dd>
+
+<dd>
+self fetchContextRegisters</dd>
+</dl>
+</dl>
+
+<dl>
+<dd>
+<b>nilContextFields</b></dd>
+
+<dl>
+<dd>
+memory storePointer: SenderIndex</dd>
+
+<dl>
+<dd>
+&nbsp;&nbsp; ofObject: activeContext</dd>
+
+<dd>
+&nbsp;&nbsp; withValue: NilPointer.</dd>
+</dl>
+
+<dd>
+memory storePointer: InstructionPointerIndex</dd>
+
+<dl>
+<dd>
+&nbsp;&nbsp; ofObject: activeContext</dd>
+
+<dd>
+&nbsp;&nbsp; withValue: NilPointer</dd>
+</dl>
+</dl>
+</dl>
+Due to the nature of <tt>BlockContexts</tt>, this implementation of the
+return bytecodes will create circular structures. Implementations of the
+object memory that rely exclusively on reference counting to reclaim unused
+storage will not properly deallocate the objects that make up these circular
+structures. To avoid this problem, the following additional mechanism should
+be included. If the active context is a <tt>BlockContext</tt> and the context
+being returned to (a <tt>Context</tt>) is on the sender chain of the active
+context, the sender pointers of the intervening contexts on the sender
+chain should be set to <tt>nil</tt>.
+<br>
+<hr size="3" width="100%">
+<center><font color="#3333FF">[<a href="../bluebook_imp_toc.html">TOC</a>]
+[<a href="../bluebook/bluebook_chapter26.html">26</a>] [<a href="../bluebook/bluebook_chapter27.html">27</a>]
+[<a href="../bluebook/bluebook_chapter28.html#top_of_28">28</a>] [<a href="../bluebook/bluebook_chapter29.html">29</a>]
+[<a href="../bluebook/bluebook_chapter30.html">30</a>]</font></center>
+
+
+</body></html>
